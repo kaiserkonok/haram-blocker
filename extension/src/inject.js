@@ -263,6 +263,9 @@
         // New video in this element (e.g. next reel): drop everything queued
         // from the previous one instantly, start cleaned, re-check allowed list.
         this.waiting = false;
+        // YouTube Shorts reuses one <video> for every reel: drop the previous
+        // reel's queued picture too, so it disappears the instant you scroll.
+        if (this.overlay) this.overlay.flush();
         this.setMode("clean", true);
         this.refresh();
         this.updateFreeze();
@@ -686,10 +689,10 @@
         // while the voice is being cleaned; it starts moving when ready.
         show(frames[0].bmp);
         this.hasImage = true;
-      } else if (!this.hasImage && !this.video.paused) {
-        show(null); // playing, first frame not captured yet (a few ms)
       } else if (!this.hasImage) {
-        this.canvas.style.display = "none"; // nothing to show: let the video show
+        // Nothing captured yet (first few ms of a new video): let the page's
+        // own picture show instead of a black flash. Sound is silent anyway.
+        this.canvas.style.display = "none";
       }
     }
   }

@@ -85,8 +85,14 @@ RESPONSIVENESS_JS = """async () => {
   v.play();
   await sleep(300);
   const after = pic();
-  out.newPictureShown = after.h !== before.h && after.bright > 30;
-  await sleep(700);
+  const shown = getComputedStyle(c).display === 'block';
+  await sleep(400);
+  const later = pic();
+  // Within 0.3 s the new video's first frame must be on screen and held
+  // still while its voice is cleaned (the old video must not keep moving).
+  out.newPictureShown = shown && after.h !== before.h && after.bright > 30;
+  out.oldPictureGone = after.h === later.h;
+  await sleep(300);
   out.afterSwitch = rms(ts + 60, ts + 900);
   out.positionAtPause = posAtPause;
   return out;
@@ -219,6 +225,7 @@ def main() -> int:
     print(f"  picture moved after pause:   {clicks['pictureMovedWhilePaused']}")
     print(f"  sound 100-800 ms after play: {db(clicks['afterResume']):6.1f} dB  (voice right away)")
     print(f"  new video picture shown:     {clicks['newPictureShown']}")
+    print(f"  old video stopped at once:   {clicks['oldPictureGone']}")
     print(f"  old sound after switching:   {db(clicks['afterSwitch']):6.1f} dB  (cut at once)")
 
     ok = True
@@ -231,6 +238,7 @@ def main() -> int:
     ok &= not clicks["pictureMovedWhilePaused"]
     ok &= db(clicks["afterResume"]) > db(clicks["beforePause"]) - 10
     ok &= clicks["newPictureShown"]
+    ok &= clicks["oldPictureGone"]
     ok &= db(clicks["afterSwitch"]) < -60
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
