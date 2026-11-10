@@ -16,6 +16,17 @@ html[data-hb-style="blur"]:not([data-hb-images="off"]) img:not([data-hb="ok"]) {
   filter: blur(var(--hb-blur, 40px)) !important;
 }
 
+/* Pictures drawn as a CSS background set on the element itself (X/Twitter
+   shows every photo this way, with an invisible <img> on top). The picture
+   is removed and the box filled with the color until checked. */
+html:not([data-hb-images="off"]):not([data-hb-style="blur"]) [style*="url(" i]:not(img):not([data-hb="ok"]) {
+  background-image: none !important;
+  background-color: var(--hb-color, #000) !important;
+}
+html[data-hb-style="blur"]:not([data-hb-images="off"]) [style*="url(" i]:not(img):not([data-hb="ok"]) {
+  filter: blur(var(--hb-blur, 40px)) !important;
+}
+
 /* Images inside SVG (some sites draw profile photos this way). */
 html:not([data-hb-images="off"]) svg image:not([data-hb="ok"]) {
   opacity: 0 !important;

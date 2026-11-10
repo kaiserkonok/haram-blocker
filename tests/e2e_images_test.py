@@ -16,6 +16,10 @@ Checks:
   * changing an image's source hides it again at once
   * logos are shown: the project's SVG logo (from another origin, so the
     extension downloads and draws it itself) and transparent PNG logos
+  * pictures drawn as CSS backgrounds (how X/Twitter shows photos: a box
+    with background-image plus an invisible <img> of the same picture) are
+    covered in every frame unless allowed, and a background swapped to a
+    woman's photo is never shown
 """
 
 import functools
@@ -52,9 +56,11 @@ def serve(directory):
 WATCH_JS = """
 window.__frames = [];
 (function tick() {
-  const shown = [...document.querySelectorAll('img')].filter((i) => i.getAttribute('data-hb') === 'ok').map((i) => i.dataset.group + ':' + i.dataset.n);
-  const hiddenStyle = [...document.querySelectorAll('img')].map((i) => getComputedStyle(i).objectPosition);
-  window.__frames.push({ t: performance.now(), shown, hiddenStyle });
+  const shown = [...document.querySelectorAll('img[data-group]')].filter((i) => i.getAttribute('data-hb') === 'ok').map((i) => i.dataset.group + ':' + i.dataset.n);
+  const hiddenStyle = [...document.querySelectorAll('img[data-group]')].map((i) => getComputedStyle(i).objectPosition);
+  // background pictures count as shown when the page actually paints them
+  const bgShown = [...document.querySelectorAll('div[data-bg]')].filter((d) => getComputedStyle(d).backgroundImage !== 'none').map((d) => d.dataset.group + ':' + d.dataset.n);
+  window.__frames.push({ t: performance.now(), shown, hiddenStyle, bgShown });
   requestAnimationFrame(tick);
 })();
 """
@@ -104,6 +110,15 @@ def main():
         f"<img data-group='{g}' data-n='{k}' src='{src}' width='200' height='150' style='object-fit:cover'>"
         for g, k, src in picks
     )
+    # X/Twitter style: the visible picture is the box's background; the <img>
+    # on top is see-through (opacity 0).
+    bg_picks = [p for p in picks if p[0] in ("female", "mixed", "none", "logo")][::2]
+    tags += "".join(
+        f"<div data-bg data-group='{g}' data-n='{k}' style='position:relative;display:inline-block;width:200px;height:150px;"
+        f"background-size:cover;background-image:url(\"{src}\")'>"
+        f"<img src='{src}' style='position:absolute;inset:0;width:100%;height:100%;opacity:0'></div>"
+        for g, k, src in bg_picks
+    )
     with open(os.path.join(a_dir, "index.html"), "w") as f:
         f.write(f"<!doctype html><html><head><script>{WATCH_JS}</script></head>"
                 f"<body style='margin:0;background:#fff'>{tags}</body></html>")
@@ -150,13 +165,36 @@ def main():
         t_nav = time.time()
         page.goto(f"http://127.0.0.1:{port_a}/index.html")
         page.wait_for_function(
-            "[...document.querySelectorAll('img')].every((i) => i.getAttribute('data-hb'))", timeout=30000
+            "[...document.querySelectorAll('img[data-group]')].every((i) => i.getAttribute('data-hb'))", timeout=30000
         )
+        try:
+            page.wait_for_function(
+                "[...document.querySelectorAll('div[data-bg]')].every((i) => i.getAttribute('data-hb'))", timeout=15000
+            )
+        except Exception:
+            print("background pictures were never decided")
         took = time.time() - t_nav
         time.sleep(0.5)
         frames = page.evaluate("window.__frames")
         result = page.evaluate(
-            "[...document.querySelectorAll('img')].map((i) => [i.dataset.group, i.dataset.n, i.getAttribute('data-hb')])"
+            "[...document.querySelectorAll('img[data-group]')].map((i) => [i.dataset.group, i.dataset.n, i.getAttribute('data-hb')])"
+        )
+        bg_result = page.evaluate(
+            "[...document.querySelectorAll('div[data-bg]')].map((d) => [d.dataset.group, d.dataset.n, getComputedStyle(d).backgroundImage !== 'none'])"
+        )
+        # Background swap: a shown logo box gets a woman's photo as background.
+        bg_swap = page.evaluate(
+            """async () => {
+              const d = [...document.querySelectorAll('div[data-bg]')].find((x) => x.dataset.group === 'logo' && getComputedStyle(x).backgroundImage !== 'none');
+              if (!d) return null;
+              const seen = [];
+              d.style.backgroundImage = 'url("swap.jpg")';
+              for (let i = 0; i < 90; i++) {
+                await new Promise((r) => requestAnimationFrame(r));
+                seen.push(getComputedStyle(d).backgroundImage.includes('swap.jpg'));
+              }
+              return seen;
+            }"""
         )
 
         # Pixel check: hidden images must be solid black on screen.
@@ -206,7 +244,20 @@ def main():
     if swap_frames is not None:
         print(f"source changed to a woman's photo: shown in {sum(swap_frames)}/{len(swap_frames)} frames")
 
+    bg_leaked = sorted({s for f in frames for s in f.get("bgShown", []) if s.split(":")[0] in ("female", "mixed")})
+    bg_by = {}
+    for g, n, shown in bg_result:
+        bg_by.setdefault(g, []).append(shown)
+    print(f"background pictures shown at the end: " + ", ".join(f"{g} {sum(v)}/{len(v)}" for g, v in bg_by.items()))
+    print(f"background photos with women shown in any frame: {bg_leaked or 'none'}")
+    if bg_swap is not None:
+        print(f"background changed to a woman's photo: shown in {sum(bg_swap)}/{len(bg_swap)} frames")
+
     ok = True
+    ok &= not bg_leaked
+    ok &= sum(bg_by.get("logo", [])) == len(bg_by.get("logo", []))  # background logos must show
+    ok &= sum(bg_by.get("none", [])) >= len(bg_by.get("none", [])) // 2
+    ok &= bg_swap is not None and not any(bg_swap)
     ok &= len(first["shown"]) == 0
     ok &= all(p.startswith("-99999px") for p in first["hiddenStyle"])
     ok &= not leaked
