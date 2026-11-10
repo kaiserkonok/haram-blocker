@@ -21,6 +21,12 @@ class HaramCleaner extends AudioWorkletProcessor {
     this.inFill = 0;
     this.chunkStart = 0;
     this.chunkPeak = 0;
+    // After this many silent chunks in a row (longer than the helper's 4 s
+    // window), stop sending silence: the helper would only return silence,
+    // and missing pieces already play as silence. When sound comes back the
+    // helper sees a gap and starts fresh, which is the same as silence.
+    this.silentRun = 0;
+    this.maxSilentRun = Math.ceil((5 * sampleRate) / this.chunk);
 
     this.ringSize = Math.max(this.delay * 4, sampleRate * 4);
     this.ringL = new Float32Array(this.ringSize);
@@ -93,8 +99,9 @@ class HaramCleaner extends AudioWorkletProcessor {
         const msg = { t: "chunk", epoch: this.epoch, start: this.chunkStart, n: this.chunk };
         if (this.chunkPeak < 1e-5) {
           msg.silent = true;
-          this.port.postMessage(msg);
+          if (++this.silentRun <= this.maxSilentRun) this.port.postMessage(msg);
         } else {
+          this.silentRun = 0;
           const buf = this.inBuf.buffer;
           msg.pcm = buf;
           this.port.postMessage(msg, [buf]);
