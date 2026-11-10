@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <h1>Haram Blocker</h1>
+
+  <section id="helper" class="card">
+    <div class="row"><span class="dot" id="dot"></span><strong id="helperText">Checking…</strong></div>
+    <div class="muted" id="helperDetail"></div>
+  </section>
+
+  <section class="card">
+    <div class="label">This page</div>
+    <div class="row between">
+      <span id="host" class="mono"></span>
+      <button id="toggleSite"></button>
+    </div>
+    <div class="row between" id="channelRow" hidden>
+      <span id="channelName"></span>
+      <button id="toggleChannel"></button>
+    </div>
+    <div class="muted">Allowed sites and channels play normally, with no cleaning and no delay.</div>
+  </section>
+
+  <section class="card">
+    <label class="row"><input type="checkbox" id="lipSync"> Keep lips in sync (delay the picture too)</label>
+  </section>
+
+  <section class="card">
+    <div class="label">Allowed sites</div>
+    <ul id="sites"></ul>
+    <div class="label">Allowed YouTube channels</div>
+    <ul id="channels"></ul>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
