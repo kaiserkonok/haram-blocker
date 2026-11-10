@@ -71,14 +71,20 @@
 
   async function addWorklet(ctx) {
     await workletInfo;
-    try {
-      await ctx.audioWorklet.addModule(workletUrl);
-      return;
-    } catch (e) {
-      log("worklet via extension URL failed, trying blob", e);
+    // A blob URL works on most sites; many (e.g. YouTube) refuse to load a
+    // worklet from the extension's own URL and log an error if we try first.
+    if (workletSource) {
+      const blobUrl = URL.createObjectURL(new Blob([workletSource], { type: "text/javascript" }));
+      try {
+        await ctx.audioWorklet.addModule(blobUrl);
+        return;
+      } catch (e) {
+        log("worklet via blob failed, trying extension URL", e);
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
     }
-    const blobUrl = URL.createObjectURL(new Blob([workletSource], { type: "text/javascript" }));
-    await ctx.audioWorklet.addModule(blobUrl);
+    await ctx.audioWorklet.addModule(workletUrl);
   }
 
   class Pipeline {
@@ -277,11 +283,16 @@
         }
       });
       el.addEventListener("play", () => {
-        resumeAudio();
+        // Muted autoplay (Instagram/Facebook feeds) needs no sound; trying to
+        // start audio then only makes Chrome log an autoplay warning.
+        if (!el.muted && el.volume > 0) resumeAudio();
         this.refresh();
         this.updateFreeze();
       });
       el.addEventListener("pause", () => this.updateFreeze());
+      el.addEventListener("volumechange", () => {
+        if (!el.muted && el.volume > 0 && !el.paused) resumeAudio();
+      });
       el.addEventListener("ended", () => this.updateFreeze());
       el.addEventListener("waiting", () => {
         this.waiting = true;
