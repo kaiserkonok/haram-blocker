@@ -32,6 +32,7 @@ Haram Blocker flips the order. Every video's sound goes through an AI model on y
 - **Zero leak by design.** The audio is cleaned before playback. If a piece isn't ready in time, you hear silence, never the original. If the helper crashes, everything stays silent.
 - **Keeps the voice.** Talks, vlogs, podcasts, news and reels stay watchable. Only the instruments and beats disappear.
 - **Lips stay in sync.** The picture is held back by the same second as the voice.
+- **Works with blur extensions.** If an extension like HaramBlur blurs a video, the blur also covers Haram Blocker's delayed picture. Because that picture is shown 1 s late, a blur that reacts up to a second late still lands *before* you see the frame.
 - **Instant controls.** Pause, play and scrolling to the next reel react immediately. Only a *new* video waits about a second while its voice is cleaned.
 - **Works on any site.** It hooks every `<video>`, `<audio>` and Web Audio output in Chrome, not a list of supported sites. Tested on YouTube and YouTube Shorts; reports from other sites are welcome.
 - **Allowed list.** Sites and YouTube channels you trust (Quran recitation, for example) play untouched, with no delay. Ads on allowed channels are still cleaned.

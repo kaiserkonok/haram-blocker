@@ -531,6 +531,10 @@
       this.hasImage = false; // canvas currently holds a picture
       this.frozen = false;
       this.frozenAt = 0;
+      // CSS filters other extensions put on the video (e.g. HaramBlur's blur),
+      // recorded over time so the delayed picture gets the same treatment.
+      this.filterHist = []; // [{ t, f }] — only changes are stored
+      this.shownCap = null; // capture time of the frame on the canvas
       this.canvas = document.createElement("canvas");
       this.canvas.setAttribute("data-haram-blocker", "");
       Object.assign(this.canvas.style, {
@@ -655,7 +659,9 @@
         this.canvas.style.display = "none";
         return;
       }
-      const show = (bmp) => {
+      this.recordFilter(now);
+      const show = (bmp, cap) => {
+        this.shownCap = cap;
         const box = this.fitRect();
         this.g.fillStyle = "#000";
         this.g.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -668,10 +674,12 @@
         // Paused: hold the current picture. If there is none yet (paused
         // right after a seek), show the newest captured frame as a still.
         if (!this.hasImage && frames.length) {
-          show(frames[frames.length - 1].bmp);
+          const f = frames[frames.length - 1];
+          show(f.bmp, f.cap);
           this.hasImage = true;
         }
         if (!this.hasImage) this.canvas.style.display = "none";
+        this.applyFilter(now);
         return;
       }
 
@@ -681,19 +689,48 @@
         due = frames.shift();
       }
       if (due) {
-        show(due.bmp);
+        show(due.bmp, due.cap);
         due.bmp.close();
         this.hasImage = true;
       } else if (!this.hasImage && frames.length) {
         // New video / next reel: show its first frame instantly as a still
         // while the voice is being cleaned; it starts moving when ready.
-        show(frames[0].bmp);
+        show(frames[0].bmp, frames[0].cap);
         this.hasImage = true;
       } else if (!this.hasImage) {
         // Nothing captured yet (first few ms of a new video): let the page's
         // own picture show instead of a black flash. Sound is silent anyway.
         this.canvas.style.display = "none";
       }
+      this.applyFilter(now);
+    }
+
+    recordFilter(now) {
+      const f = getComputedStyle(this.video).filter || "none";
+      const h = this.filterHist;
+      if (!h.length || h[h.length - 1].f !== f) h.push({ t: now, f });
+      // Keep 10 s of history (plus the state just before it).
+      while (h.length > 1 && h[1].t < now - 10000) h.shift();
+    }
+
+    // The frame on the canvas was captured at `shownCap`, up to 1 s ago. If
+    // the page's own video was filtered (blurred) at any moment between that
+    // capture and now, filter the canvas too. This way a blur extension that
+    // reacts late still hides the picture before it is shown.
+    applyFilter(now) {
+      const c = this.canvas;
+      let f = "none";
+      if (this.shownCap !== null) {
+        const from = this.shownCap - 150;
+        for (const e of this.filterHist) {
+          if (e.t <= from) f = e.f; // state when the frame was captured
+          else if (e.t <= now && e.f !== "none") f = e.f; // blurred later
+        }
+        // A later "none" must not undo a blur seen inside the window.
+        const last = this.filterHist[this.filterHist.length - 1];
+        if (last && last.f !== "none") f = last.f;
+      }
+      if (c.style.filter !== (f === "none" ? "" : f)) c.style.filter = f === "none" ? "" : f;
     }
   }
 

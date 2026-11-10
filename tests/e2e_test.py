@@ -11,6 +11,8 @@ loudness going into the cleaner and coming out to the speakers. Checks:
   * the speech part comes out clearly
   * cleaned audio arrives on time (no gaps once playing)
   * the lip-sync overlay is shown over the video
+  * another extension's blur on the video (e.g. HaramBlur) also covers the
+    delayed picture, including frames captured just before the blur
   * clicks are instant: pause stops sound and picture at once, play resumes
     at once (from the buffered second), and a new video (next reel) shows
     its picture at once while the old video's sound is cut immediately
@@ -96,6 +98,28 @@ RESPONSIVENESS_JS = """async () => {
   out.afterSwitch = rms(ts + 60, ts + 900);
   out.positionAtPause = posAtPause;
   return out;
+}"""
+
+
+# Another extension (like HaramBlur) blurs the <video> with a CSS filter. The
+# lip-sync canvas must carry that blur, and must also blur frames that were
+# captured up to 1 s *before* the blur was applied (they are shown later).
+BLUR_JS = """async () => {
+  const v = document.getElementById('v');
+  const c = document.querySelector('canvas[data-haram-blocker]');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  v.src = 'test.webm?blur';
+  await v.play();
+  await sleep(2500);
+  v.style.filter = 'blur(20px)';   // the other extension reacts
+  await sleep(150);
+  const right_away = c.style.filter;  // frame shown now was captured ~1 s before the blur
+  v.style.filter = '';               // the other extension un-blurs
+  await sleep(400);
+  const just_after = c.style.filter;  // frames shown were captured while blurred
+  await sleep(1300);
+  const later = c.style.filter;       // frames captured after the un-blur
+  return { right_away, just_after, later };
 }"""
 
 
@@ -188,6 +212,7 @@ def main() -> int:
         log = page.evaluate("window.__haramBlockerTest || []")
         status = sw.evaluate("({helper, lastPong})")
         clicks = page.evaluate(RESPONSIVENESS_JS)
+        blur = page.evaluate(BLUR_JS)
         ctx.close()
 
     if not log:
@@ -226,6 +251,10 @@ def main() -> int:
     print(f"  sound 100-800 ms after play: {db(clicks['afterResume']):6.1f} dB  (voice right away)")
     print(f"  new video picture shown:     {clicks['newPictureShown']}")
     print(f"  old video stopped at once:   {clicks['oldPictureGone']}")
+    print("other extension's blur (e.g. HaramBlur):")
+    print(f"  0.15 s after it blurs:       {blur['right_away'] or 'none'}  (should be blurred)")
+    print(f"  0.4 s after it un-blurs:     {blur['just_after'] or 'none'}  (still blurred: old frames)")
+    print(f"  1.3 s later:                 {blur['later'] or 'none'}  (clear again)")
     print(f"  old sound after switching:   {db(clicks['afterSwitch']):6.1f} dB  (cut at once)")
 
     ok = True
@@ -240,6 +269,7 @@ def main() -> int:
     ok &= clicks["newPictureShown"]
     ok &= clicks["oldPictureGone"]
     ok &= db(clicks["afterSwitch"]) < -60
+    ok &= "blur" in blur["right_away"] and "blur" in blur["just_after"] and not blur["later"]
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
 
