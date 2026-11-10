@@ -115,6 +115,31 @@
       origConnect.call(this.input, node);
       origConnect.call(node, destinationOf.call(this.ctx));
       this.node = node;
+      if (document.documentElement.hasAttribute("data-haram-blocker-test")) this.attachTestProbe();
+    }
+
+    // Test pages only: record input/output loudness so automated tests can
+    // check that music is removed and nothing leaks.
+    attachTestProbe() {
+      const probe = (from) => {
+        const a = this.ctx.createAnalyser();
+        a.fftSize = 2048;
+        origConnect.call(from, a);
+        return a;
+      };
+      const aIn = probe(this.input);
+      const aOut = probe(this.node);
+      const buf = new Float32Array(2048);
+      const rms = (a) => {
+        a.getFloatTimeDomainData(buf);
+        let s = 0;
+        for (const v of buf) s += v * v;
+        return Math.sqrt(s / buf.length);
+      };
+      const log = (window.__haramBlockerTest = window.__haramBlockerTest || []);
+      setInterval(() => {
+        log.push({ t: performance.now(), ctxTime: this.ctx.currentTime, state: this.ctx.state, in: rms(aIn), out: rms(aOut) });
+      }, 50);
     }
 
     deliver(m) {
