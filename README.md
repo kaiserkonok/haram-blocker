@@ -75,7 +75,7 @@ That's it. Chrome starts the helper automatically, and it's ready about 5 second
 
 ```mermaid
 flowchart LR
-    A["Page audio<br/>&lt;video&gt; · &lt;audio&gt; · Web Audio"] -->|rerouted before<br/>the speakers| B["AudioWorklet<br/>0.2 s pieces"]
+    A["Page audio<br/>video · audio · Web Audio"] -->|rerouted before<br/>the speakers| B["AudioWorklet<br/>0.2 s pieces"]
     B -->|native messaging| C["GPU helper<br/>Demucs vocals model"]
     C -->|voice only| D["AudioWorklet<br/>plays exactly 1.0 s<br/>after capture"]
     D --> E(("🔊"))
