@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" width="880" height="300" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <style>
+    .text { fill: #1f2328; }
+    .muted { fill: #59636e; }
+    .axis { stroke: #d1d9e0; }
+    .silence { fill: #eef1f4; stroke: #d1d9e0; }
+    .music { fill: #e5534b; }
+    .muted-bar { fill: #c9d1d9; }
+    .voice { fill: #14b8a6; }
+    @media (prefers-color-scheme: dark) {
+      .text { fill: #e6edf3; }
+      .muted { fill: #9198a1; }
+      .axis { stroke: #3d444d; }
+      .silence { fill: #1c2128; stroke: #3d444d; }
+      .muted-bar { fill: #3d444d; }
+    }
+  </style>
+
+  <!-- Row 1: typical blocker -->
+  <text x="0" y="28" class="text" font-size="16" font-weight="600">Typical music blocker: listens first, removes second</text>
+  <rect x="0" y="44" width="160" height="44" rx="6" class="music"/>
+  <text x="80" y="71" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">♪ music plays</text>
+  <rect x="164" y="44" width="716" height="44" rx="6" class="muted-bar"/>
+  <text x="522" y="71" text-anchor="middle" class="muted" font-size="13">detected → music removed from here on</text>
+  <text x="0" y="110" class="muted" font-size="12">You already heard ~1 second of music before it reacts.</text>
+
+  <!-- Row 2: Haram Blocker -->
+  <text x="0" y="160" class="text" font-size="16" font-weight="600">Haram Blocker: cleans first, plays second</text>
+  <rect x="0" y="176" width="160" height="44" rx="6" class="silence" stroke-dasharray="4 3"/>
+  <text x="80" y="203" text-anchor="middle" class="muted" font-size="13">cleaning on GPU</text>
+  <rect x="164" y="176" width="716" height="44" rx="6" class="voice"/>
+  <g fill="#fff" opacity="0.9">
+    <rect x="200" y="192" width="4" height="12" rx="2"/><rect x="210" y="186" width="4" height="24" rx="2"/><rect x="220" y="190" width="4" height="16" rx="2"/>
+    <rect x="230" y="184" width="4" height="28" rx="2"/><rect x="240" y="192" width="4" height="12" rx="2"/>
+  </g>
+  <text x="522" y="203" text-anchor="middle" fill="#fff" font-size="13" font-weight="600">voice only — music never reaches your ears</text>
+  <text x="0" y="242" class="muted" font-size="12">Video and voice are both held back ~1 second, so lips stay in sync. Pause, play and scroll stay instant.</text>
+
+  <!-- time axis -->
+  <line x1="0" y1="272" x2="880" y2="272" class="axis" stroke-width="1"/>
+  <line x1="0" y1="266" x2="0" y2="278" class="axis" stroke-width="1"/>
+  <line x1="162" y1="266" x2="162" y2="278" class="axis" stroke-width="1"/>
+  <text x="0" y="294" class="muted" font-size="12">0 s</text>
+  <text x="162" y="294" class="muted" font-size="12" text-anchor="middle">~1 s</text>
+  <text x="880" y="294" class="muted" font-size="12" text-anchor="end">time →</text>
+</svg>
