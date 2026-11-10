@@ -236,12 +236,21 @@ def main() -> None:
     threading.Thread(target=read_messages, args=(q,), daemon=True).start()
 
     streams: dict[str, Stream] = {}
-    stats = {"chunks": 0, "busy": 0.0, "max_ms": 0.0, "since": time.time()}
+    stats = {"chunks": 0, "busy": 0.0, "max_ms": 0.0, "images": 0, "since": time.time()}
+    images: list = []  # pending image checks; sound always goes first
+    judge = None
 
-    while True:
-        msg = q.get()
-        if msg is None:
-            break
+    def get_judge():
+        nonlocal judge
+        if judge is None:
+            import vision
+
+            import torch
+
+            judge = vision.ImageJudge(sep.device if sep else torch.device("cuda"))
+        return judge
+
+    def handle(msg) -> None:
         t = msg.get("t")
         if t == "chunk" and sep is not None:
             sid = msg["sid"]
@@ -260,7 +269,7 @@ def main() -> None:
                 out_start, voice = st.push(sep, msg.get("epoch"), int(msg["start"]), data)
             except Exception:
                 log.exception("processing failed")
-                continue  # browser plays silence for this slice
+                return  # browser plays silence for this slice
             ms = (time.perf_counter() - t0) * 1000
             stats["chunks"] += 1
             stats["busy"] += ms / 1000
@@ -271,6 +280,15 @@ def main() -> None:
             else:
                 reply["pcm"] = encode_pcm(voice)
             send(reply)
+        elif t == "img":
+            images.append(msg)
+        elif t == "imgwarm":
+            try:
+                get_judge()
+                send({"t": "imgready"})
+            except Exception as e:
+                log.exception("image models failed to load")
+                send({"t": "imgready", "error": str(e)})
         elif t == "close":
             streams.pop(msg.get("sid"), None)
         elif t == "ping":
@@ -282,9 +300,59 @@ def main() -> None:
                     "gpu_busy": round(stats["busy"] / elapsed, 3),
                     "max_ms": round(stats["max_ms"], 1),
                     "chunks": stats["chunks"],
+                    "images": stats["images"],
                 }
             )
-            stats.update(chunks=0, busy=0.0, max_ms=0.0, since=time.time())
+            stats.update(chunks=0, busy=0.0, max_ms=0.0, images=0, since=time.time())
+
+    def check_images() -> None:
+        """Check up to 8 images in one GPU batch (a few ms), then let sound in."""
+        batch = images[:8]
+        del images[:8]
+        t0 = time.perf_counter()
+        try:
+            j = get_judge()
+            by_hide: dict[str, list] = {}
+            for m in batch:
+                by_hide.setdefault(m.get("hide", "female"), []).append(m)
+            for hide, ms in by_hide.items():
+                datas = [base64.b64decode(m["data"]) for m in ms]
+                try:
+                    results = j.judge(datas, hide)
+                except Exception:
+                    # One bad image shouldn't fail the others: retry singly.
+                    results = []
+                    for d in datas:
+                        try:
+                            results += j.judge([d], hide)
+                        except Exception:
+                            results.append((True, "could not read image"))
+                for m, (h, why) in zip(ms, results):
+                    send({"t": "imgres", "id": m["id"], "hide": bool(h), "why": why})
+        except Exception as e:
+            log.exception("image check failed")
+            for m in batch:  # fail closed: keep hidden
+                send({"t": "imgres", "id": m["id"], "hide": True, "why": f"error: {e}"})
+        stats["images"] += len(batch)
+        stats["busy"] += time.perf_counter() - t0
+
+    while True:
+        if images and q.empty():
+            check_images()
+            continue
+        msg = q.get()
+        if msg is None:
+            break
+        handle(msg)
+        # Handle everything already waiting (sound first) before more images.
+        while not q.empty():
+            msg = q.get()
+            if msg is None:
+                images.clear()
+                break
+            handle(msg)
+        if msg is None:
+            break
     log.info("helper exiting")
 
 
