@@ -97,6 +97,9 @@ class Separator:
         from demucs.pretrained import get_model
 
         self.torch = torch
+        # The work happens on the GPU. Extra CPU threads only spin while
+        # waiting (68% of a core vs 18% with one thread, same speed).
+        torch.set_num_threads(1)
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA GPU not available")
         self.device = torch.device("cuda")
