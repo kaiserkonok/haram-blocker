@@ -298,9 +298,12 @@
         // YouTube Shorts reuses one <video> for every reel: drop the previous
         // reel's queued picture too, so it disappears the instant you scroll.
         if (this.overlay) this.overlay.flush();
-        this.setMode("clean", true);
-        this.refresh();
-        this.updateFreeze();
+        try {
+          this.setMode("clean", true);
+          this.refresh();
+        } finally {
+          this.updateFreeze();
+        }
       });
       el.addEventListener("seeking", () => {
         if (this.mode === "clean") {
@@ -311,9 +314,12 @@
       el.addEventListener("play", () => {
         // Muted autoplay (Instagram/Facebook feeds) needs no sound; trying to
         // start audio then only makes Chrome log an autoplay warning.
-        if (!el.muted && el.volume > 0) resumeAudio();
-        this.refresh();
-        this.updateFreeze();
+        try {
+          if (!el.muted && el.volume > 0) resumeAudio();
+          this.refresh();
+        } finally {
+          this.updateFreeze(); // sound on/off must happen no matter what
+        }
       });
       el.addEventListener("pause", () => this.updateFreeze());
       el.addEventListener("volumechange", () => {
@@ -326,8 +332,11 @@
       });
       el.addEventListener("playing", () => {
         this.waiting = false;
-        this.refresh();
-        this.updateFreeze();
+        try {
+          this.refresh();
+        } finally {
+          this.updateFreeze();
+        }
       });
       for (const ev of ["loadedmetadata", "durationchange"]) {
         el.addEventListener(ev, () => this.refresh());
@@ -514,6 +523,19 @@
   // ------------------------------------------------------------------------
   // Allowed list (sites and YouTube channels)
   // ------------------------------------------------------------------------
+  // Saved settings may contain bad entries (e.g. an empty channel). Never
+  // let one break anything: keep only well-formed entries.
+  function cleanSettings(s) {
+    s = s || {};
+    return {
+      sites: (Array.isArray(s.sites) ? s.sites : []).filter((x) => typeof x === "string" && x),
+      channels: (Array.isArray(s.channels) ? s.channels : []).filter(
+        (c) => c && typeof c.id === "string" && c.id
+      ),
+      lipSync: s.lipSync !== false,
+    };
+  }
+
   function hostMatches(host, site) {
     return host === site || host.endsWith("." + site);
   }
@@ -567,6 +589,15 @@
   }
 
   function isAllowed(el) {
+    try {
+      return isAllowedUnsafe(el);
+    } catch (e) {
+      log("allowed-list check failed; cleaning", e);
+      return false;
+    }
+  }
+
+  function isAllowedUnsafe(el) {
     if (!settings) return false;
     if (siteAllowed()) return true;
     const ch = youTubeChannel(el);
@@ -580,7 +611,12 @@
         liveHooks.delete(h);
         continue;
       }
-      h.refresh();
+      try {
+        h.refresh();
+        h.updateFreeze();
+      } catch (e) {
+        log("refresh failed", e);
+      }
     }
   }
   window.addEventListener("yt-navigate-finish", refreshAll);
@@ -824,7 +860,7 @@
       if (p) p.deliver(m);
     } else if (m.t === "config") {
       const first = !workletUrl;
-      settings = m.settings;
+      settings = cleanSettings(m.settings);
       if (first) {
         workletUrl = m.workletUrl;
         workletSource = m.workletSource;

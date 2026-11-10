@@ -264,13 +264,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
-// Fill in settings that don't exist yet; never overwrite the user's choices.
-chrome.runtime.onInstalled.addListener(async () => {
+// Fill in settings that don't exist yet (never overwrite the user's
+// choices) and remove malformed entries saved by older versions.
+async function repairSettings() {
   const have = await chrome.storage.local.get(null);
-  const missing = {};
-  for (const [k, v] of Object.entries(DEFAULTS)) if (!(k in have)) missing[k] = v;
-  if (Object.keys(missing).length) await chrome.storage.local.set(missing);
-});
+  const fix = {};
+  for (const [k, v] of Object.entries(DEFAULTS)) if (!(k in have)) fix[k] = v;
+  if (Array.isArray(have.channels)) {
+    const good = have.channels.filter((c) => c && typeof c.id === "string" && c.id);
+    if (good.length !== have.channels.length) fix.channels = good;
+  }
+  if (Array.isArray(have.sites)) {
+    const good = have.sites.filter((x) => typeof x === "string" && x);
+    if (good.length !== have.sites.length) fix.sites = good;
+  }
+  if (Object.keys(fix).length) await chrome.storage.local.set(fix);
+}
+chrome.runtime.onInstalled.addListener(repairSettings);
+repairSettings();
 
 // Start the helper as soon as Chrome starts, so the AI is warm before the
 // first video.

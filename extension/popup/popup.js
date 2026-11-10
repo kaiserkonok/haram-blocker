@@ -12,7 +12,10 @@ let tab = null;
 let info = { host: "", channel: null };
 
 async function settings() {
-  return chrome.storage.local.get(DEFAULTS);
+  const s = await chrome.storage.local.get(DEFAULTS);
+  s.sites = (s.sites || []).filter((x) => typeof x === "string" && x);
+  s.channels = (s.channels || []).filter((c) => c && typeof c.id === "string" && c.id);
+  return s;
 }
 
 function siteOf(host) {
@@ -75,7 +78,8 @@ async function render() {
 
 $("toggleSite").onclick = async () => {
   const s = await settings();
-  const site = siteOf(info.host);
+  const site = siteOf(info.host || "");
+  if (!site) return;
   const sites = s.sites.includes(site) ? s.sites.filter((x) => x !== site) : [...s.sites, site];
   await chrome.storage.local.set({ sites });
   render();
@@ -84,6 +88,7 @@ $("toggleSite").onclick = async () => {
 $("toggleChannel").onclick = async () => {
   const s = await settings();
   const ch = info.channel;
+  if (!ch || !ch.id) return; // nothing valid to add
   const on = s.channels.some((c) => c.id === ch.id);
   const channels = on ? s.channels.filter((c) => c.id !== ch.id) : [...s.channels, ch];
   await chrome.storage.local.set({ channels });
