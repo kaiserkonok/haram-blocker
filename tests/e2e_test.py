@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """End-to-end test: real Chromium + the extension + the GPU helper.
 
-Usage: python tests/e2e_test.py music_file speech_file
+Usage: python tests/e2e_test.py music_file speech_file [--webaudio]
+
+--webaudio: the page routes the video through its own Web Audio graph (a
+volume leveler), like YouTube's "Stable Volume". Every check must still pass.
 
 Builds a 14 s test video: 0-3 s music only, 3-14 s speech over music.
 Plays it in Chromium with the extension loaded and records, every 50 ms, the
@@ -22,6 +25,7 @@ Set HB_CHROMIUM to use a specific Chromium binary.
 
 import functools
 import http.server
+import json
 import os
 import shutil
 import subprocess
@@ -40,9 +44,17 @@ DURATION = 14.0
 DELAY = 1.0
 
 
+ACTIVE_LOG_JS = """
+  const all = window.__haramBlockerTest;
+  const sums = {};
+  for (const e of all) sums[e.id] = (sums[e.id] || 0) + e.in;
+  const activeId = Number(Object.entries(sums).sort((a, b) => b[1] - a[1])[0][0]);
+  const log = { filter: (f) => all.filter((e) => e.id === activeId).filter(f) };
+"""
+
 RESPONSIVENESS_JS = """async () => {
   const v = document.getElementById('v');
-  const log = window.__haramBlockerTest;
+""" + ACTIVE_LOG_JS + """
   const c = document.querySelector('canvas[data-haram-blocker]');
   const g = c.getContext('2d');
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -123,7 +135,22 @@ BLUR_JS = """async () => {
 }"""
 
 
-def make_media(music: str, speech: str, out_dir: str) -> None:
+# Like YouTube's "Stable Volume": on first play the page takes the video into
+# its own Web Audio graph (a compressor) before the speakers.
+WEBAUDIO_PAGE_JS = """
+document.getElementById('v').addEventListener('play', () => {
+  if (window.__ac) return;
+  const v = document.getElementById('v');
+  const ac = (window.__ac = new AudioContext());
+  const src = ac.createMediaElementSource(v);
+  const comp = ac.createDynamicsCompressor();
+  src.connect(comp);
+  comp.connect(ac.destination);
+});
+"""
+
+
+def make_media(music: str, speech: str, out_dir: str, webaudio: bool = False) -> None:
     subprocess.run(
         [
             "ffmpeg", "-loglevel", "error", "-y",
@@ -144,7 +171,8 @@ def make_media(music: str, speech: str, out_dir: str) -> None:
             "<!doctype html><html data-haram-blocker-test><body style='margin:0;background:#222'>"
             "<div style='position:relative;width:640px;height:360px'>"
             "<video id=v src=test.webm width=640 height=360 playsinline></video></div>"
-            "</body></html>"
+            + (f"<script>{WEBAUDIO_PAGE_JS}</script>" if webaudio else "")
+            + "</body></html>"
         )
 
 
@@ -159,16 +187,23 @@ def serve(directory: str) -> int:
 def main() -> int:
     music, speech = sys.argv[1], sys.argv[2]
     work = tempfile.mkdtemp(prefix="hb-e2e-")
-    make_media(music, speech, work)
+    webaudio = "--webaudio" in sys.argv
+    print("page routes video through its own Web Audio graph:" if webaudio else "plain page:", webaudio)
+    make_media(music, speech, work, webaudio)
     port = serve(work)
 
     # Chromium looks for the helper registration inside its profile folder.
     profile = os.path.join(work, "profile")
     os.makedirs(os.path.join(profile, "NativeMessagingHosts"))
-    shutil.copy(
-        os.path.expanduser("~/.config/google-chrome/NativeMessagingHosts/com.haram_blocker.cleaner.json"),
-        os.path.join(profile, "NativeMessagingHosts"),
-    )
+    # Register the helper from THIS checkout (not the installed one).
+    with open(os.path.join(profile, "NativeMessagingHosts", "com.haram_blocker.cleaner.json"), "w") as f:
+        json.dump({
+            "name": "com.haram_blocker.cleaner",
+            "description": "Haram Blocker GPU helper (test)",
+            "path": os.path.join(ROOT, "helper", "run.sh"),
+            "type": "stdio",
+            "allowed_origins": ["chrome-extension://dlhalfnkadcmncbhilghjipnpjmaaocb/"],
+        }, f)
 
     with sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(
@@ -218,6 +253,12 @@ def main() -> int:
     if not log:
         print("FAIL: no measurements (cleaner never started)")
         return 1
+    # A page can have several cleaners; analyse the one that got the sound.
+    sums = {}
+    for e in log:
+        sums[e["id"]] = sums.get(e["id"], 0) + e["in"]
+    active = max(sums, key=sums.get)
+    log = [e for e in log if e["id"] == active]
     t = np.array([e["ctxTime"] for e in log])
     rin = np.array([e["in"] for e in log])
     rout = np.array([e["out"] for e in log])

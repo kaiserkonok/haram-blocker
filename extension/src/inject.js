@@ -94,6 +94,7 @@
       this.epoch = 1;
       this.node = null;
       this.frozen = frozen;
+      this.bypassed = false;
       this.disposed = false;
       // Sound enters here. Until the worklet is loaded this goes nowhere,
       // i.e. silence — never the original audio.
@@ -129,9 +130,9 @@
       node.port.postMessage({ t: "flush", epoch: this.epoch });
       node.port.postMessage({ t: "freeze", on: this.frozen });
       if (this.disposed) return;
-      origConnect.call(this.input, node);
       origConnect.call(node, destinationOf.call(this.ctx));
       this.node = node;
+      origConnect.call(this.input, this.bypassed ? destinationOf.call(this.ctx) : node);
       if (document.documentElement.hasAttribute("data-haram-blocker-test")) this.attachTestProbe();
     }
 
@@ -155,7 +156,7 @@
       };
       const log = (window.__haramBlockerTest = window.__haramBlockerTest || []);
       setInterval(() => {
-        log.push({ t: performance.now(), ctxTime: this.ctx.currentTime, state: this.ctx.state, frozen: this.frozen, in: rms(aIn), out: rms(aOut) });
+        log.push({ id: this.id, t: performance.now(), ctxTime: this.ctx.currentTime, state: this.ctx.state, frozen: this.frozen, in: rms(aIn), out: rms(aOut) });
       }, 50);
     }
 
@@ -178,6 +179,19 @@
       if (this.node) this.node.port.postMessage({ t: "freeze", on });
     }
 
+    // Allowed site/channel: sound goes straight to the speakers, no cleaning.
+    setBypass(on) {
+      if (on === this.bypassed) return;
+      this.bypassed = on;
+      this.flush();
+      if (!this.node) return; // init() wires it the right way once loaded
+      const dest = destinationOf.call(this.ctx);
+      try {
+        origDisconnect.call(this.input, on ? this.node : dest);
+      } catch (e) {}
+      origConnect.call(this.input, on ? dest : this.node);
+    }
+
     dispose() {
       this.disposed = true;
       pipelineById.delete(this.id);
@@ -194,9 +208,11 @@
     }
   }
 
+  let pageContextCount = 0;
   function pipelineFor(ctx) {
     let p = pipelines.get(ctx);
     if (!p) {
+      if (!ourContexts.has(ctx)) pageContextCount++;
       p = new Pipeline(ctx);
       pipelines.set(ctx, p);
     }
@@ -255,13 +271,23 @@
   const hooked = new WeakMap(); // element -> Hook
   const liveHooks = new Set();
 
+  // Each <video>/<audio> is wired one of two ways:
+  //   route "own":  element -> our AudioContext -> its own cleaner -> speakers
+  //   route "page": the page took the element into its own Web Audio graph
+  //                 (e.g. YouTube "Stable Volume"). We feed the page's graph
+  //                 from our context, and the page's graph ends in that
+  //                 context's cleaner (see the connect() patch).
+  // Either way, mode "clean" cleans it and "bypass" (allowed list) doesn't,
+  // and pause/seek/new-video/lip-sync act on whichever cleaner is in use.
   class Hook {
     constructor(el, src) {
       this.el = el;
       this.src = src;
-      this.mode = null; // "clean" | "bypass" | "handoff"
+      this.route = "own";
+      this.mode = null; // "clean" | "bypass"
       this.waiting = false;
       this._pipe = null;
+      this.pagePipe = null;
       this.overlay = el instanceof HTMLVideoElement ? new Overlay(el) : null;
       liveHooks.add(this);
 
@@ -278,7 +304,7 @@
       });
       el.addEventListener("seeking", () => {
         if (this.mode === "clean") {
-          this.pipe.flush();
+          this.active().flush();
           if (this.overlay) this.overlay.flush();
         }
       });
@@ -311,10 +337,15 @@
       this.updateFreeze();
     }
 
-    // Each element has its own cleaner, created when needed.
+    // Our own cleaner for this element, created when needed.
     get pipe() {
       if (!this._pipe) this._pipe = new Pipeline(getMediaCtx(), this.shouldFreeze());
       return this._pipe;
+    }
+
+    // The cleaner this element's sound currently goes through.
+    active() {
+      return this.route === "page" ? this.pagePipe : this.pipe;
     }
 
     // Frozen while paused or buffering. At the natural end of a video we
@@ -327,7 +358,7 @@
     updateFreeze() {
       if (this.mode !== "clean") return;
       const on = this.shouldFreeze();
-      this.pipe.freeze(on);
+      this.active().freeze(on);
       if (this.overlay) this.overlay.setFrozen(on);
     }
 
@@ -335,37 +366,58 @@
       if (mode === this.mode && !force) return;
       const prev = this.mode;
       this.mode = mode;
-      if (prev !== "handoff") {
+      if (this.route === "own") {
         try {
           origDisconnect.call(this.src);
         } catch (e) {}
+        if (mode === "clean") {
+          origConnect.call(this.src, this.pipe.input);
+          if (prev === "bypass" || force) this.pipe.flush();
+        } else {
+          if (this._pipe) this._pipe.flush(); // don't let queued cleaned audio overlap
+          origConnect.call(this.src, destinationOf.call(mediaCtx));
+        }
+      } else {
+        // The element stays connected to the page's graph; the page's
+        // cleaner switches between cleaning and passing through.
+        this.pagePipe.setBypass(mode === "bypass");
+        if (force) this.pagePipe.flush();
       }
-      if (mode === "clean") {
-        origConnect.call(this.src, this.pipe.input);
-        if (prev === "bypass" || force) this.pipe.flush();
-        this.updateFreeze();
-      } else if (mode === "bypass") {
-        if (this._pipe) this._pipe.flush(); // don't let queued cleaned audio overlap
-        origConnect.call(this.src, destinationOf.call(mediaCtx));
-      }
+      this.updateFreeze();
       if (this.overlay) this.overlay.setEnabled(mode === "clean" && (!settings || settings.lipSync));
     }
 
     refresh() {
-      if (this.mode === "handoff") return;
       this.setMode(isAllowed(this.el) ? "bypass" : "clean");
+    }
+
+    // The page wants this element in its own Web Audio graph. Feed it from
+    // our context (the element can only belong to one), return the node the
+    // page will use, and from now on act on the page context's cleaner.
+    handOffTo(pageCtx) {
+      const msd = getMediaCtx().createMediaStreamDestination();
+      try {
+        origDisconnect.call(this.src);
+      } catch (e) {}
+      origConnect.call(this.src, msd);
+      if (this._pipe) this._pipe.freeze(true); // our own cleaner gets no sound now
+      this.route = "page";
+      this.pagePipe = pipelineFor(pageCtx);
+      this.setMode(this.mode || "clean", true);
+      return pageCtx.createMediaStreamSource(msd.stream);
     }
 
     // Element removed from the page (e.g. scrolled-away reel): free its cleaner.
     // It is rebuilt automatically if the element is used again.
     sleep() {
+      if (this.overlay) this.overlay.setEnabled(false);
+      if (this.route === "page") return; // the page's cleaner is shared; keep it
       if (!this._pipe) return;
       try {
         origDisconnect.call(this.src, this._pipe.input);
       } catch (e) {}
       this._pipe.dispose();
       this._pipe = null;
-      if (this.overlay) this.overlay.setEnabled(false);
       this.mode = null;
     }
   }
@@ -393,18 +445,16 @@
     hooked.set(el, new Hook(el, src));
   }
 
-  // If the page later wants the element in its own Web Audio graph, hand the
-  // sound over to the page's graph (which ends in the page's cleaner).
+  // If the page wants the element in its own Web Audio graph (e.g. YouTube's
+  // "Stable Volume"), feed that graph from our context; its output is cleaned
+  // by the page context's cleaner.
   AC.prototype.createMediaElementSource = function (el) {
     const h = hooked.get(el);
     if (h && !ourContexts.has(this)) {
       try {
-        const stream = el.captureStream ? el.captureStream() : el.mozCaptureStream();
-        const node = this.createMediaStreamSource(stream);
-        h.setMode("handoff");
-        return node;
+        return h.handOffTo(this);
       } catch (e) {
-        log("handoff failed", e);
+        log("hand-off failed", e);
       }
     }
     return origCreateMES.call(this, el);
@@ -433,6 +483,25 @@
     }).observe(root, { childList: true, subtree: true });
   }
   watch(document);
+
+  // Tests only: on request, report how each media element is wired. Answers
+  // only when the page carries the test marker.
+  window.addEventListener("haram-blocker-test-query", () => {
+    const root = document.documentElement;
+    if (!root.hasAttribute("data-haram-blocker-test")) return;
+    root.setAttribute(
+      "data-haram-blocker-state",
+      JSON.stringify({
+        pageContexts: pageContextCount,
+        media: [...liveHooks].map((h) => ({
+          mode: h.mode,
+          frozen: h._pipe ? h._pipe.frozen : null,
+          paused: h.el.paused,
+          src: (h.el.currentSrc || "").slice(0, 40),
+        })),
+      })
+    );
+  });
 
   Element.prototype.attachShadow = function () {
     const root = origAttachShadow.apply(this, arguments);

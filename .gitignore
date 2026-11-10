@@ -1,5 +1,5 @@
 .keys/
-helper/.venv/
+helper/.venv
 __pycache__/
 *.pyc
 test-output/

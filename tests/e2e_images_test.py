@@ -91,10 +91,15 @@ def main():
 
     profile = os.path.join(work, "profile")
     os.makedirs(os.path.join(profile, "NativeMessagingHosts"))
-    shutil.copy(
-        os.path.expanduser("~/.config/google-chrome/NativeMessagingHosts/com.haram_blocker.cleaner.json"),
-        os.path.join(profile, "NativeMessagingHosts"),
-    )
+    # Register the helper from THIS checkout (not the installed one).
+    with open(os.path.join(profile, "NativeMessagingHosts", "com.haram_blocker.cleaner.json"), "w") as f:
+        json.dump({
+            "name": "com.haram_blocker.cleaner",
+            "description": "Haram Blocker GPU helper (test)",
+            "path": os.path.join(ROOT, "helper", "run.sh"),
+            "type": "stdio",
+            "allowed_origins": ["chrome-extension://dlhalfnkadcmncbhilghjipnpjmaaocb/"],
+        }, f)
 
     with sync_playwright() as p:
         ctx = p.chromium.launch_persistent_context(
