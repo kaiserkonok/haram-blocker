@@ -5,8 +5,10 @@
 <h1 align="center">Haram Blocker</h1>
 
 <p align="center">
-  <b>Watch any video without the music.</b><br>
-  The music is removed live, on your own GPU, <i>before</i> a single note reaches your ears.
+  <b>Keep haram out of your browser, live.</b><br>
+  Music is removed from every video before you hear a single note.<br>
+  Pictures of the opposite gender are covered before you see them.<br>
+  All on your own GPU. Nothing leaves your computer.
 </p>
 
 <p align="center">
@@ -19,25 +21,53 @@
 
 ---
 
-Most music blockers listen first and act second. Music starts playing, the extension notices, and *then* it mutes. That first second is exactly the part you were trying to avoid.
+Most blockers react after the fact. The music starts, the extension notices, and *then* it mutes. The picture appears, and *then* it gets blurred. That first moment is exactly what you were trying to avoid.
 
-Haram Blocker flips the order. Every video's sound goes through an AI model on your graphics card **before** it is played. The model separates the voice from the instruments, the instruments are thrown away, and you only ever hear the voice.
+Haram Blocker works the other way round: **check first, show second.** Nothing reaches your eyes or ears until an AI model on your graphics card has cleared it.
+
+| | 🔇 Music | 🖼️ Images |
+|---|---|---|
+| **What it does** | Removes instruments and beats from any video, keeps the voices | Covers pictures that show the gender you choose to hide ("I am a man" → women are covered, and the other way round) |
+| **Timing** | Voice plays ~1 s after a video starts; pause, play and scroll stay instant | Covered from the first frame, shown a moment later if clear |
+| **If anything fails** | Silence, never the original | Stays covered, never shown |
+| **Measured** | Music ~65 dB quieter (silent) | Strict: 0.17% of photos with a woman shown, on a quiz the model never trained on |
+
+## 🔇 Music removal
+
+Every video's sound goes through an AI model on your graphics card **before** it is played. The model separates the voice from the instruments, the instruments are thrown away, and you only ever hear the voice.
 
 <p align="center">
   <img src="docs/assets/how-it-works.svg" width="880" alt="Typical blockers play about one second of music before removing it. Haram Blocker cleans the audio first, so the music is never heard.">
 </p>
 
-## Features
-
 - **Zero leak by design.** The audio is cleaned before playback. If a piece isn't ready in time, you hear silence, never the original. If the helper crashes, everything stays silent.
 - **Keeps the voice.** Talks, vlogs, podcasts, news and reels stay watchable. Only the instruments and beats disappear.
 - **Lips stay in sync.** The picture is held back by the same second as the voice.
-- **Works with blur extensions.** If an extension like HaramBlur blurs a video, the blur also covers Haram Blocker's delayed picture. Because that picture is shown 1 s late, a blur that reacts up to a second late still lands *before* you see the frame.
 - **Instant controls.** Pause, play and scrolling to the next reel react immediately. Only a *new* video waits about a second while its voice is cleaned.
-- **Works on any site.** It hooks every `<video>`, `<audio>` and Web Audio output in Chrome, not a list of supported sites. Tested on YouTube and YouTube Shorts; reports from other sites are welcome.
-- **Hides images of the opposite gender (optional).** Pick "I am a man" or "I am a woman" in the menu. Every image starts covered (solid black by default, or blurred) and is shown only after the AI has checked it. Logos, icons and charts are recognised as harmless. Two strictness levels: strict (default) and balanced.
+- **Works on any site.** It hooks every `<video>`, `<audio>` and Web Audio output in Chrome, not a list of supported sites. Tested on YouTube (including Shorts and Stable Volume) and X.
+- **Works with blur extensions.** If another extension blurs a video, the blur also covers Haram Blocker's delayed picture. Because that picture is shown 1 s late, a blur that reacts up to a second late still lands *before* you see the frame.
+
+## 🖼️ Image hiding
+
+Pick **"I am a man"** or **"I am a woman"** in the menu. Every picture on every site starts covered and is shown only after the AI has checked it.
+
+<p align="center">
+  <img src="docs/assets/images-how.svg" width="880" alt="Every picture is covered when the page loads, checked by the AI on your GPU, and shown only if nobody of the hidden gender is in it.">
+</p>
+
+- **No flash.** The cover is applied before the page draws anything, so a picture can't appear even for one frame before it's checked.
+- **Unsure means covered.** If the AI isn't sure, or the check fails, the picture stays covered.
+- **Logos and graphics stay visible.** Logos, icons, charts and patterns are recognised as harmless, so websites stay usable (about 1% of them covered by mistake).
+- **Photos, art and close-ups.** It looks at each person close up *and* at the whole picture, which also catches drawings, paintings and body close-ups.
+- **Works on real sites.** Normal images, SVG images, and pictures drawn as backgrounds (X/Twitter shows every photo this way) are all checked. When a site swaps a picture, the new one is covered again at once.
+- **Your choice of cover.** Solid black (default), any color, or blur. Two strictness levels: **strict** (default) and **balanced**.
+- **Trained and tested properly.** The classifiers were trained on audited public data and measured on a separate quiz set they never saw ([details](helper/training/README.md)).
+
+## Also
+
 - **Allowed list.** Sites and YouTube channels you trust (Quran recitation, for example) play untouched, with no delay. Ads on allowed channels are still cleaned.
 - **Private.** Everything runs on your machine. No servers, no accounts, no analytics, and nothing leaves your computer.
+- **Idle means idle.** When nothing is playing and no new pictures appear, the GPU does nothing.
 
 ## Performance
 
@@ -71,11 +101,13 @@ Then load the extension:
 2. Turn on **Developer mode** (top right)
 3. Click **Load unpacked** and pick the `extension` folder
 
-That's it. Chrome starts the helper automatically, and it's ready about 5 seconds after Chrome opens. Click the extension icon to see its status and manage your allowed list.
+That's it. Chrome starts the helper automatically, and it's ready about 5 seconds after Chrome opens. Click the extension icon to see its status, turn on image hiding ("I am a man" / "I am a woman") and manage your allowed list.
 
-> If you use another music-blocking extension, turn it off. Two extensions capturing the same audio will interfere with each other.
+> If you use another music-blocking or image-blurring extension, turn it off. Two extensions doing the same job interfere with each other and use your GPU twice.
 
 ## How it works
+
+### Music removal
 
 ```mermaid
 flowchart LR
@@ -104,7 +136,7 @@ flowchart LR
     E -->|clear| G["shown"]
 ```
 
-The stylesheet is injected before the page draws, so images are covered from the first frame. The finder ([Faster R-CNN MobileNetV3](https://pytorch.org/vision/stable/models/faster_rcnn.html), torchvision) locates people. Two small classifiers trained on top of [CLIP](https://github.com/openai/CLIP) ViT-B/16 then decide: one looks at each person close up, the other at the whole image (catching drawings, paintings, body close-ups and people the finder missed). They were trained on audited, public data and tested on a separate quiz set; see [helper/training](helper/training/README.md). Images the page won't let the extension read are downloaded again by the extension, shrunk to 384 px and sent to the helper. Results are cached. Sound always takes priority on the GPU, so a page full of images never causes gaps in the voice.
+The stylesheet is injected before the page draws, so images are covered from the first frame. The finder ([Faster R-CNN MobileNetV3](https://pytorch.org/vision/stable/models/faster_rcnn.html), torchvision) locates people. Two small classifiers trained on top of [CLIP](https://github.com/openai/CLIP) ViT-B/16 then decide: one looks at each person close up, the other at the whole image (catching drawings, paintings, body close-ups and people the finder missed). They were trained on audited, public data and tested on a separate quiz set; see [helper/training](helper/training/README.md). Images the page won't let the extension read are downloaded again by the extension, shrunk to 512 px and sent to the helper. Results are cached. Sound always takes priority on the GPU, so a page full of images never causes gaps in the voice.
 
 <details>
 <summary><b>Project layout</b></summary>
@@ -139,8 +171,14 @@ No. The model separates *vocals* from *instruments*, and a singing voice is a vo
 **Why is there a one-second wait when a video starts?**
 That's the time it takes to clean the audio before you hear it. It's the price of never hearing music. Pausing, resuming and scrolling stay instant.
 
+**Does image hiding cover everything?**
+No. Only pictures with someone of the gender you chose to hide stay covered. Logos, food, buildings, charts and pictures with only your own gender are shown.
+
+**Can I use only one of the two?**
+Yes. Image hiding is off until you pick "I am a man" or "I am a woman". Music removal can be skipped on any site or channel with the allowed list.
+
 **Does it run all the time?**
-The model stays loaded in VRAM so videos start quickly, but it only computes while sound is actually playing. When nothing plays, GPU use is zero.
+The models stay loaded in VRAM so videos and pages are fast, but they only compute while sound is playing or new pictures appear. When you're idle, GPU use is zero.
 
 **Does it work without an NVIDIA GPU?**
 Not yet. AMD (ROCm), Apple Silicon and CPU support are on the roadmap. On CPU, the model is too slow for live use today.
@@ -155,7 +193,8 @@ Because most videos with background music are worth watching: lectures, vlogs, n
 
 - Linux + NVIDIA + Chromium-based browsers only, for now.
 - Videos from servers that block cross-origin access (some TikTok CDNs) can't be read by Web Audio, so they play silent rather than unfiltered.
-- Image hiding covers `<img>` and SVG images. CSS background images, video posters and images inside shadow DOM are not covered yet. Videos themselves are not checked for people yet.
+- Image hiding covers `<img>`, SVG images and backgrounds set in an element's own style. Backgrounds set from a site's stylesheet, video posters and images inside shadow DOM are not covered yet. Videos themselves are not checked for people yet.
+- The image check can miss very small people in crowds, and some drawings and statues.
 - If a site puts the bare `<video>` element into fullscreen, the lip-sync canvas can't cover it. The audio is still cleaned, but the picture may run 1 s ahead.
 
 ## Roadmap
@@ -163,8 +202,9 @@ Because most videos with background music are worth watching: lectures, vlogs, n
 - [ ] Windows and macOS installers
 - [ ] AMD / Apple Silicon / CPU backends
 - [ ] Lower start delay (smaller pieces on fast GPUs)
-- [ ] Check video frames for people, using the 1 s buffer that already exists
-- [ ] CSS background images
+- [ ] Check video frames for people, using the 1 s buffer that already exists (cover videos, not just pictures)
+- [x] Pictures drawn as backgrounds (X/Twitter)
+- [ ] Backgrounds from stylesheets, video posters
 - [ ] Firefox support
 - [ ] Chrome Web Store release
 
@@ -186,7 +226,7 @@ The tests mix a speech recording over music, so the perfect answer is known. The
 
 Helper logs: `~/.local/state/haram-blocker/helper.log`
 
-Issues and pull requests are welcome. If music ever leaks through, please open an issue with the video link.
+Issues and pull requests are welcome. If music ever leaks through, or a picture is shown that should have been covered, please open an issue with the link.
 
 ## Credits
 
