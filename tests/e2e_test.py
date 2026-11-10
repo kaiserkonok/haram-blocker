@@ -11,6 +11,9 @@ loudness going into the cleaner and coming out to the speakers. Checks:
   * the speech part comes out clearly
   * cleaned audio arrives on time (no gaps once playing)
   * the lip-sync overlay is shown over the video
+  * clicks are instant: pause stops sound and picture at once, play resumes
+    at once (from the buffered second), and a new video (next reel) shows
+    its picture at once while the old video's sound is cut immediately
 Requires: playwright (python) with its Chromium, and install.sh already run.
 Set HB_CHROMIUM to use a specific Chromium binary.
 """
@@ -33,6 +36,61 @@ EXT = os.path.join(ROOT, "extension")
 MUSIC_ONLY = 3.0
 DURATION = 14.0
 DELAY = 1.0
+
+
+RESPONSIVENESS_JS = """async () => {
+  const v = document.getElementById('v');
+  const log = window.__haramBlockerTest;
+  const c = document.querySelector('canvas[data-haram-blocker]');
+  const g = c.getContext('2d');
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const pic = () => {
+    const d = g.getImageData(0, 0, c.width, c.height).data;
+    let h = 0, sum = 0;
+    for (let i = 0; i < d.length; i += 4 * 97) { h = (h * 31 + d[i] + d[i + 1]) | 0; sum += d[i] + d[i + 1] + d[i + 2]; }
+    return { h, bright: sum / (d.length / (4 * 97)) };
+  };
+  const rms = (t0, t1) => {
+    const xs = log.filter((e) => e.t >= t0 && e.t < t1).map((e) => e.out);
+    return xs.length ? Math.max(...xs) : 1;
+  };
+  const avg = (t0, t1) => {
+    const xs = log.filter((e) => e.t >= t0 && e.t < t1).map((e) => e.out);
+    return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
+  };
+
+  // Start the video again from the top (the test server can't jump) and
+  // play into the speech part, which begins at 3 s.
+  v.src = 'test.webm?again';
+  await v.play();
+  await sleep(5300);            // cleaned voice (1 s behind) is flowing
+  const tp = performance.now();
+  const posAtPause = v.currentTime;
+  v.pause();
+  await sleep(100);
+  const p1 = pic();
+  await sleep(900);
+  const p2 = pic();
+  const out = { beforePause: avg(tp - 800, tp), afterPause: rms(tp + 60, tp + 1000),
+                pictureMovedWhilePaused: p1.h !== p2.h };
+
+  const tr = performance.now();
+  await v.play();
+  await sleep(900);
+  out.afterResume = avg(tr + 100, tr + 800);
+
+  const before = pic();
+  const ts = performance.now();
+  v.src = 'test.webm?next';     // like scrolling to the next reel
+  v.play();
+  await sleep(300);
+  const after = pic();
+  out.newPictureShown = after.h !== before.h && after.bright > 30;
+  await sleep(700);
+  out.afterSwitch = rms(ts + 60, ts + 900);
+  out.positionAtPause = posAtPause;
+  return out;
+}"""
 
 
 def make_media(music: str, speech: str, out_dir: str) -> None:
@@ -123,6 +181,7 @@ def main() -> int:
         time.sleep(DURATION - 0.5)
         log = page.evaluate("window.__haramBlockerTest || []")
         status = sw.evaluate("({helper, lastPong})")
+        clicks = page.evaluate(RESPONSIVENESS_JS)
         ctx.close()
 
     if not log:
@@ -153,12 +212,26 @@ def main() -> int:
     print(f"lip-sync overlay: {overlay}")
     print(f"helper: {status}")
     print(f"screenshot: {os.path.join(work, 'playing.png')}")
+    print("clicks:")
+    print(f"  paused at video time:        {clicks['positionAtPause']:.1f} s")
+    print(f"  voice before pause:          {db(clicks['beforePause']):6.1f} dB")
+    print(f"  sound 60 ms+ after pause:    {db(clicks['afterPause']):6.1f} dB  (should be silence)")
+    print(f"  picture moved after pause:   {clicks['pictureMovedWhilePaused']}")
+    print(f"  sound 100-800 ms after play: {db(clicks['afterResume']):6.1f} dB  (voice right away)")
+    print(f"  new video picture shown:     {clicks['newPictureShown']}")
+    print(f"  old sound after switching:   {db(clicks['afterSwitch']):6.1f} dB  (cut at once)")
 
     ok = True
     ok &= first_second < 1e-4
     ok &= db(music_out) < db(music_in) - 30
     ok &= db(speech_out) > db(music_out) + 20
     ok &= overlay == "block"
+    ok &= db(clicks["beforePause"]) > -40  # really measuring a voice
+    ok &= db(clicks["afterPause"]) < -80
+    ok &= not clicks["pictureMovedWhilePaused"]
+    ok &= db(clicks["afterResume"]) > db(clicks["beforePause"]) - 10
+    ok &= clicks["newPictureShown"]
+    ok &= db(clicks["afterSwitch"]) < -60
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
 

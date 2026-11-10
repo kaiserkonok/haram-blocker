@@ -63,7 +63,13 @@
   const pipelineById = new Map();
   let nextPipelineId = 1;
 
-  async function loadWorklet(ctx) {
+  const workletLoads = new WeakMap(); // AudioContext -> Promise
+  function loadWorklet(ctx) {
+    if (!workletLoads.has(ctx)) workletLoads.set(ctx, addWorklet(ctx));
+    return workletLoads.get(ctx);
+  }
+
+  async function addWorklet(ctx) {
     await workletInfo;
     try {
       await ctx.audioWorklet.addModule(workletUrl);
@@ -76,11 +82,13 @@
   }
 
   class Pipeline {
-    constructor(ctx) {
+    constructor(ctx, frozen = false) {
       this.ctx = ctx;
       this.id = nextPipelineId++;
       this.epoch = 1;
       this.node = null;
+      this.frozen = frozen;
+      this.disposed = false;
       // Sound enters here. Until the worklet is loaded this goes nowhere,
       // i.e. silence — never the original audio.
       this.input = ctx.createGain();
@@ -109,9 +117,12 @@
           else bridge.postMessage(m);
         } else if (m.t === "stats") {
           bridge.postMessage({ t: "stats", sid: this.id, ...m });
+          if (window.__haramBlockerTest) (window.__haramBlockerStats ||= []).push({ t: performance.now(), stats: m });
         }
       };
       node.port.postMessage({ t: "flush", epoch: this.epoch });
+      node.port.postMessage({ t: "freeze", on: this.frozen });
+      if (this.disposed) return;
       origConnect.call(this.input, node);
       origConnect.call(node, destinationOf.call(this.ctx));
       this.node = node;
@@ -138,7 +149,7 @@
       };
       const log = (window.__haramBlockerTest = window.__haramBlockerTest || []);
       setInterval(() => {
-        log.push({ t: performance.now(), ctxTime: this.ctx.currentTime, state: this.ctx.state, in: rms(aIn), out: rms(aOut) });
+        log.push({ t: performance.now(), ctxTime: this.ctx.currentTime, state: this.ctx.state, frozen: this.frozen, in: rms(aIn), out: rms(aOut) });
       }, 50);
     }
 
@@ -151,6 +162,29 @@
     flush() {
       this.epoch++;
       if (this.node) this.node.port.postMessage({ t: "flush", epoch: this.epoch });
+    }
+
+    // Paused: stop the whole delay line instantly (no sound comes out, nothing
+    // new goes in). Resuming continues exactly where it stopped, with no wait.
+    freeze(on) {
+      if (on === this.frozen) return;
+      this.frozen = on;
+      if (this.node) this.node.port.postMessage({ t: "freeze", on });
+    }
+
+    dispose() {
+      this.disposed = true;
+      pipelineById.delete(this.id);
+      try {
+        origDisconnect.call(this.input);
+      } catch (e) {}
+      if (this.node) {
+        try {
+          origDisconnect.call(this.node);
+        } catch (e) {}
+        this.node.port.close();
+        this.node = null;
+      }
     }
   }
 
@@ -201,7 +235,6 @@
     if (!mediaCtx) {
       mediaCtx = new AC({ latencyHint: "playback" });
       ourContexts.add(mediaCtx);
-      pipelineFor(mediaCtx);
     }
     return mediaCtx;
   }
@@ -221,32 +254,67 @@
       this.el = el;
       this.src = src;
       this.mode = null; // "clean" | "bypass" | "handoff"
+      this.waiting = false;
+      this._pipe = null;
       this.overlay = el instanceof HTMLVideoElement ? new Overlay(el) : null;
       liveHooks.add(this);
 
       el.addEventListener("loadstart", () => {
-        // New video in this element: always start cleaned and drop anything
-        // queued from the previous one, then check the allowed list again.
+        // New video in this element (e.g. next reel): drop everything queued
+        // from the previous one instantly, start cleaned, re-check allowed list.
+        this.waiting = false;
         this.setMode("clean", true);
         this.refresh();
+        this.updateFreeze();
       });
       el.addEventListener("seeking", () => {
         if (this.mode === "clean") {
-          getPipeline().flush();
+          this.pipe.flush();
           if (this.overlay) this.overlay.flush();
         }
       });
       el.addEventListener("play", () => {
         resumeAudio();
-        if (this.overlay) this.overlay.onPlay();
         this.refresh();
+        this.updateFreeze();
       });
-      el.addEventListener("pause", () => this.overlay && this.overlay.onPause());
-      for (const ev of ["playing", "loadedmetadata", "durationchange"]) {
+      el.addEventListener("pause", () => this.updateFreeze());
+      el.addEventListener("ended", () => this.updateFreeze());
+      el.addEventListener("waiting", () => {
+        this.waiting = true;
+        this.updateFreeze();
+      });
+      el.addEventListener("playing", () => {
+        this.waiting = false;
+        this.refresh();
+        this.updateFreeze();
+      });
+      for (const ev of ["loadedmetadata", "durationchange"]) {
         el.addEventListener(ev, () => this.refresh());
       }
       this.setMode("clean");
       this.refresh();
+      this.updateFreeze();
+    }
+
+    // Each element has its own cleaner, created when needed.
+    get pipe() {
+      if (!this._pipe) this._pipe = new Pipeline(getMediaCtx(), this.shouldFreeze());
+      return this._pipe;
+    }
+
+    // Frozen while paused or buffering. At the natural end of a video we
+    // don't freeze, so the last second still plays out.
+    shouldFreeze() {
+      const el = this.el;
+      return (el.paused && !el.ended) || this.waiting;
+    }
+
+    updateFreeze() {
+      if (this.mode !== "clean") return;
+      const on = this.shouldFreeze();
+      this.pipe.freeze(on);
+      if (this.overlay) this.overlay.setFrozen(on);
     }
 
     setMode(mode, force) {
@@ -259,10 +327,11 @@
         } catch (e) {}
       }
       if (mode === "clean") {
-        origConnect.call(this.src, getPipeline().input);
-        if (prev === "bypass" || force) getPipeline().flush();
+        origConnect.call(this.src, this.pipe.input);
+        if (prev === "bypass" || force) this.pipe.flush();
+        this.updateFreeze();
       } else if (mode === "bypass") {
-        getPipeline().flush(); // don't let queued cleaned audio overlap
+        if (this._pipe) this._pipe.flush(); // don't let queued cleaned audio overlap
         origConnect.call(this.src, destinationOf.call(mediaCtx));
       }
       if (this.overlay) this.overlay.setEnabled(mode === "clean" && (!settings || settings.lipSync));
@@ -272,14 +341,32 @@
       if (this.mode === "handoff") return;
       this.setMode(isAllowed(this.el) ? "bypass" : "clean");
     }
-  }
 
-  function getPipeline() {
-    return pipelineFor(getMediaCtx());
+    // Element removed from the page (e.g. scrolled-away reel): free its cleaner.
+    // It is rebuilt automatically if the element is used again.
+    sleep() {
+      if (!this._pipe) return;
+      try {
+        origDisconnect.call(this.src, this._pipe.input);
+      } catch (e) {}
+      this._pipe.dispose();
+      this._pipe = null;
+      if (this.overlay) this.overlay.setEnabled(false);
+      this.mode = null;
+    }
   }
 
   function hook(el) {
-    if (!(el instanceof MediaEl) || hooked.has(el)) return;
+    if (!(el instanceof MediaEl)) return;
+    if (hooked.has(el)) {
+      const h = hooked.get(el);
+      if (h && h.mode === null) {
+        liveHooks.add(h);
+        h.refresh();
+        h.updateFreeze();
+      }
+      return;
+    }
     let src;
     try {
       src = origCreateMES.call(getMediaCtx(), el);
@@ -405,7 +492,11 @@
 
   function refreshAll() {
     for (const h of liveHooks) {
-      if (!h.el.isConnected && h.el.paused) continue;
+      if (!h.el.isConnected && h.el.paused) {
+        h.sleep();
+        liveHooks.delete(h);
+        continue;
+      }
       h.refresh();
     }
   }
@@ -433,9 +524,10 @@
     constructor(video) {
       this.video = video;
       this.enabled = false;
-      this.frames = []; // { at: ms timestamp to show, bmp }
-      this.pending = false; // playing but no delayed frame due yet -> black
-      this.hasImage = false;
+      this.frames = []; // { at: when to show (ms), cap: when captured (ms), bmp }
+      this.hasImage = false; // canvas currently holds a picture
+      this.frozen = false;
+      this.frozenAt = 0;
       this.canvas = document.createElement("canvas");
       this.canvas.setAttribute("data-haram-blocker", "");
       Object.assign(this.canvas.style, {
@@ -456,7 +548,6 @@
       this.gen = (this.gen || 0) + 1; // stops loops started by an earlier enable
       if (on) {
         this.flush();
-        this.pending = !this.video.paused;
         const gen = this.gen;
         if (this.video.requestVideoFrameCallback) {
           this.video.requestVideoFrameCallback((n, m) => this.onVideoFrame(n, m, gen));
@@ -468,12 +559,18 @@
       }
     }
 
-    onPlay() {
-      if (this.enabled && !this.frames.length) this.pending = true;
-    }
-
-    onPause() {
-      this.pending = false;
+    // Paused: the picture stops instantly. On resume, the frames still waiting
+    // in the 1 s line continue from where they stopped (shifted in time).
+    setFrozen(on) {
+      if (on === this.frozen) return;
+      const now = performance.now();
+      if (on) {
+        this.frozenAt = now;
+      } else {
+        const delta = now - this.frozenAt;
+        for (const f of this.frames) if (f.cap <= this.frozenAt) f.at += delta;
+      }
+      this.frozen = on;
     }
 
     clearFrames() {
@@ -484,7 +581,6 @@
     flush() {
       this.clearFrames();
       this.hasImage = false;
-      this.pending = this.enabled && !this.video.paused;
     }
 
     onVideoFrame(now, meta, gen) {
@@ -493,7 +589,8 @@
       const w = this.canvas.width;
       const h = this.canvas.height;
       if (!w || !h) return;
-      const at = (meta.expectedDisplayTime || now) + DELAY_SEC * 1000;
+      const cap = meta.expectedDisplayTime || now;
+      const at = cap + DELAY_SEC * 1000;
       const box = this.fitRect();
       createImageBitmap(this.video, {
         resizeWidth: Math.max(1, Math.round(box.w)),
@@ -502,7 +599,7 @@
       })
         .then((bmp) => {
           if (!this.enabled) return bmp.close();
-          this.frames.push({ at, bmp });
+          this.frames.push({ at, cap, bmp });
           while (this.frames.length > 240) this.frames.shift().bmp.close();
         })
         .catch(() => {});
@@ -555,26 +652,42 @@
         this.canvas.style.display = "none";
         return;
       }
-      let due = null;
-      while (this.frames.length && this.frames[0].at <= now) {
-        if (due) due.bmp.close();
-        due = this.frames.shift();
-      }
-      const g = this.g;
-      const { width: w, height: h } = this.canvas;
-      if (due) {
+      const show = (bmp) => {
         const box = this.fitRect();
-        g.fillStyle = "#000";
-        g.fillRect(0, 0, w, h);
-        g.drawImage(due.bmp, box.x, box.y, box.w, box.h);
+        this.g.fillStyle = "#000";
+        this.g.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        if (bmp) this.g.drawImage(bmp, box.x, box.y, box.w, box.h);
+        this.canvas.style.display = "block";
+      };
+      const frames = this.frames;
+
+      if (this.frozen) {
+        // Paused: hold the current picture. If there is none yet (paused
+        // right after a seek), show the newest captured frame as a still.
+        if (!this.hasImage && frames.length) {
+          show(frames[frames.length - 1].bmp);
+          this.hasImage = true;
+        }
+        if (!this.hasImage) this.canvas.style.display = "none";
+        return;
+      }
+
+      let due = null;
+      while (frames.length && frames[0].at <= now) {
+        if (due) due.bmp.close();
+        due = frames.shift();
+      }
+      if (due) {
+        show(due.bmp);
         due.bmp.close();
         this.hasImage = true;
-        this.pending = false;
-        this.canvas.style.display = "block";
-      } else if (this.pending && !this.hasImage) {
-        g.fillStyle = "#000";
-        g.fillRect(0, 0, w, h);
-        this.canvas.style.display = "block";
+      } else if (!this.hasImage && frames.length) {
+        // New video / next reel: show its first frame instantly as a still
+        // while the voice is being cleaned; it starts moving when ready.
+        show(frames[0].bmp);
+        this.hasImage = true;
+      } else if (!this.hasImage && !this.video.paused) {
+        show(null); // playing, first frame not captured yet (a few ms)
       } else if (!this.hasImage) {
         this.canvas.style.display = "none"; // nothing to show: let the video show
       }

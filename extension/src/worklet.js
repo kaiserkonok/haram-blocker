@@ -14,6 +14,7 @@ class HaramCleaner extends AudioWorkletProcessor {
     this.chunk = o.chunk; // frames per chunk sent to the helper
     this.delay = o.delay; // frames between capture and playback
     this.epoch = 0;
+    this.frozen = false;
     this.n = 0; // absolute index of the next input frame
 
     this.inBuf = new Int16Array(this.chunk * 2);
@@ -52,6 +53,10 @@ class HaramCleaner extends AudioWorkletProcessor {
         }
         this.ringIdx[pos] = idx;
       }
+    } else if (m.t === "freeze") {
+      // Paused: the delay line stops instantly — no input taken, no output
+      // played, clock held. Resuming continues exactly where it stopped.
+      this.frozen = m.on;
     } else if (m.t === "flush") {
       // Seek / new video: drop everything queued so old audio never plays.
       this.epoch = m.epoch;
@@ -65,6 +70,10 @@ class HaramCleaner extends AudioWorkletProcessor {
     const input = inputs[0];
     const out = outputs[0];
     const frames = out[0].length;
+    if (this.frozen) {
+      for (const ch of out) ch.fill(0);
+      return true;
+    }
     const inL = input.length > 0 ? input[0] : null;
     const inR = input.length > 1 ? input[1] : inL;
 
