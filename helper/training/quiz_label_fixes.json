@@ -1,0 +1,135 @@
+{
+ "_about": "Corrections to quiz labels after visually checking every quiz image where a label and a model disagreed (71 images). 'exclude' = young child or baby whose gender can't be told, or nothing recognisable.",
+ "fixes": {
+  "f3c57a5470c0a96d.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "f4edab0e7419843e.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "73a131482cde7c0d.jpg": "exclude",
+  "100592e9e99ebc8e.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "62c7ce7ef3753a2d.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "350cc69b68e4b8e5.jpg": "exclude",
+  "de43326ce30e279b.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "47642b86abdce83e.jpg": "exclude",
+  "cb20dbb49d247632.jpg": "exclude",
+  "224c281e41ca6356.jpg": "exclude",
+  "acef88ab2025226c.jpg": "exclude",
+  "3a0467a69d21d420.jpg": "exclude",
+  "d3d0e6353e50842d.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "COCO_val2014_000000282365.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "COCO_val2014_000000496541.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "COCO_val2014_000000273618.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "COCO_val2014_000000234153.jpg": "exclude",
+  "f7e0c922ddf7617d.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "81ef969a4d388cf1.jpg": "exclude",
+  "c83d1a3153038850.jpg": "exclude",
+  "f596cdd02b484a6c.jpg": {
+   "female": 1,
+   "male": 1
+  },
+  "3da0823c87882ceb.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "16d83c5d5bd1c30c.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "889a01b266ad0006.jpg": "exclude",
+  "c721c96c740b588b.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "1e5d67f5eab0cf28.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "2f3613fc0c124f48.jpg": "exclude",
+  "08f60990f8d7764d.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "eacc752e4a4b672a.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "3d9685b1e895ac9a.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "6227b1aa3d456707.jpg": "exclude",
+  "424c3deb66ec0c51.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "39e53b46268b9d09.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "2f13ef4bcede1623.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "b58c17c1339dc58e.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "20d380a32511f5ac.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "8fad49a8aa9bbbbf.jpg": "exclude",
+  "ed35e996c8f8bc12.jpg": "exclude",
+  "99bdffd72a09c3a3.jpg": "exclude",
+  "61e2af2655a85f8e.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "3a20b76081264078.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "46402d9ffda2af96.jpg": "exclude",
+  "3b6060d0bcc67141.jpg": "exclude",
+  "52075e5165b6b32e.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "COCO_val2014_000000271892.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "COCO_val2014_000000279994.jpg": {
+   "female": 0,
+   "male": 0
+  }
+ }
+}

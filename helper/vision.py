@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 
 import numpy as np
 
@@ -54,8 +55,28 @@ OTHER = [
 DETECT_SCORE = 0.30  # finder: how sure it must be that something is a person
 PERSON_HIDE = 0.25  # judge on a person crop: hide if P(opposite gender) >= this
 WHOLE_HIDE = 0.15  # judge on the whole image: hide if P(opposite gender) >= this
-MAX_PEOPLE = 6  # close-ups judged per image
+MAX_PEOPLE = 16  # close-ups judged per image (crowds: background people matter)
+MAX_SIDE = 512  # images are checked at most this big (small background people)
 MIN_CROP = 20  # px; smaller people can't be judged -> counted as "unclear"
+
+
+# Trained classifier (see training/). If missing, the sentence method is used.
+HEAD_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "judge_head.pt")
+
+
+def make_head(outputs, hidden):
+    """Same layout as training/train.py's Head."""
+    import torch
+
+    if hidden:
+        net = torch.nn.Sequential(
+            torch.nn.Linear(512, hidden), torch.nn.GELU(), torch.nn.Dropout(0.2), torch.nn.Linear(hidden, outputs)
+        )
+    else:
+        net = torch.nn.Linear(512, outputs)
+    m = torch.nn.Module()
+    m.net = net
+    return m
 
 
 def flatten(img):
@@ -97,7 +118,17 @@ class ImageJudge:
         self.nf, self.nm = len(FEMALE), len(MALE)
         self.mean = torch.tensor([0.48145466, 0.4578275, 0.40821073], device=device).view(3, 1, 1)
         self.std = torch.tensor([0.26862954, 0.26130258, 0.27577711], device=device).view(3, 1, 1)
-        log.info("image judge ready")
+        self.head = None
+        if os.path.exists(HEAD_PATH):
+            ck = torch.load(HEAD_PATH, map_location=device)
+            whole, crop = make_head(2, ck["hidden"]), make_head(1, ck["hidden"])
+            whole.load_state_dict(ck["whole"])
+            crop.load_state_dict(ck["crop"])
+            self.head = (whole.to(device).eval(), crop.to(device).eval())
+            self.th = ck["thresholds"]
+            log.info("image judge ready (trained classifier, quiz leaks %s)", ck.get("quiz"))
+        else:
+            log.info("image judge ready (sentence method; no trained classifier)")
 
     # -- helpers ---------------------------------------------------------
     @staticmethod
@@ -105,7 +136,7 @@ class ImageJudge:
         from PIL import Image
 
         img = Image.open(io.BytesIO(data))
-        img.draft("RGB", (448, 448))  # fast JPEG downscale while decoding
+        img.draft("RGB", (MAX_SIDE, MAX_SIDE))  # fast JPEG downscale while decoding
         return flatten(img)
 
     def to_tensor(self, img):
@@ -135,6 +166,52 @@ class ImageJudge:
 
     # -- main ------------------------------------------------------------
     def features(self, images):
+        return self.trained_features(images) if self.head else self.sentence_features(images)
+
+    def trained_features(self, images):
+        """Trained classifier: whole-image and per-person probabilities.
+
+        Mirrors training/train.py scores(): people with score >= 0.3 are judged
+        close up; people too small to judge count when score >= 0.5; "crowd"
+        counts people with score >= 0.5."""
+        torch = self.torch
+        whole_h, crop_h = self.head
+        with torch.inference_mode():
+            tensors = [self.to_tensor(im) for im in images]
+            dets = self.detector(tensors)
+            inputs, owner, info = [], [], []
+            for i, (t, d) in enumerate(zip(tensors, dets)):
+                keep = (d["labels"] == 1) & (d["scores"] >= 0.2)
+                boxes = d["boxes"][keep][:MAX_PEOPLE].round().int().tolist()
+                scores = d["scores"][keep][:MAX_PEOPLE].tolist()
+                _, H, W = t.shape
+                small = False
+                inputs.append(self.clip_input(t))
+                owner.append((i, None))
+                for (x0, y0, x1, y1), sc in zip(boxes, scores):
+                    pw, ph = x1 - x0, y1 - y0
+                    if min(pw, ph) < MIN_CROP:
+                        small = small or sc >= 0.5
+                        continue
+                    if sc < 0.3:
+                        continue
+                    px, py = int(pw * 0.15), int(ph * 0.15)
+                    inputs.append(self.clip_input(t[:, max(0, y0 - py) : min(H, y1 + py), max(0, x0 - px) : min(W, x1 + px)]))
+                    owner.append((i, "crop"))
+                info.append({"kind": "trained", "cf": 0.0, "cm": 0.0, "small": small,
+                             "crowd": sum(1 for sc in scores if sc >= 0.5)})
+            f = self.clip.encode_image(torch.stack(inputs).half()).float()
+            f = f / f.norm(dim=-1, keepdim=True)
+            for (i, kind), e in zip(owner, f):
+                if kind is None:
+                    info[i]["w"] = torch.sigmoid(whole_h.net(e[None]))[0].tolist()
+                else:
+                    pf = torch.sigmoid(crop_h.net(e[None]))[0, 0].item()
+                    info[i]["cf"] = max(info[i]["cf"], pf)
+                    info[i]["cm"] = max(info[i]["cm"], 1 - pf)
+        return info
+
+    def sentence_features(self, images):
         """Per image: people found and their female/male scores, plus whole-image scores."""
         torch = self.torch
         with torch.inference_mode():
@@ -171,9 +248,25 @@ class ImageJudge:
                     info[i]["people"][j]["male"] = float(m / tot)
         return info
 
-    @staticmethod
-    def decide(info, hide: str) -> tuple[bool, str]:
+    def decide(self, info, hide: str) -> tuple[bool, str]:
         """hide: "female" or "male" — the gender the user wants hidden."""
+        if info.get("kind") != "trained":
+            return self.decide_sentences(info, hide)
+        th = self.th[hide]
+        w = info["w"][0 if hide == "female" else 1]
+        c = info["cf"] if hide == "female" else info["cm"]
+        if w >= th["whole"]:
+            return True, f"{hide} in image ({w:.2f})"
+        if c >= th["crop"]:
+            return True, f"{hide} person ({c:.2f})"
+        if th.get("small") and info["small"]:
+            return True, "person too small to judge"
+        if info["crowd"] >= th.get("crowd", 99):
+            return True, f"crowd of {info['crowd']}"
+        return False, "clear"
+
+    @staticmethod
+    def decide_sentences(info, hide: str) -> tuple[bool, str]:
         for p in info["people"]:
             if p.get("unclear"):
                 return True, "person too small to judge"

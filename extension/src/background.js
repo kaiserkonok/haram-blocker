@@ -214,7 +214,7 @@ async function fetchSmall(url) {
   const blob = await res.blob();
   if (/svg/i.test(blob.type) || /\.svg([?#]|$)/i.test(url)) return rasterSvg(await blob.text());
   const bmp = await createImageBitmap(blob);
-  const s = Math.min(1, 384 / Math.max(bmp.width, bmp.height));
+  const s = Math.min(1, 512 / Math.max(bmp.width, bmp.height)); // helper: vision.MAX_SIDE
   const w = Math.max(1, Math.round(bmp.width * s));
   const h = Math.max(1, Math.round(bmp.height * s));
   if (Math.min(bmp.width, bmp.height) < 40) return { tiny: true };

@@ -8,9 +8,9 @@ chrome.runtime.onMessage.addListener((m, _sender, send) => {
       const img = new Image();
       img.src = url;
       await img.decode();
-      const w0 = img.naturalWidth || 384;
-      const h0 = img.naturalHeight || 384;
-      const s = 384 / Math.max(w0, h0); // vector: draw at full check size
+      const w0 = img.naturalWidth || 512;
+      const h0 = img.naturalHeight || 512;
+      const s = 512 / Math.max(w0, h0); // vector: draw at full check size (vision.MAX_SIDE)
       const c = document.createElement("canvas");
       c.width = Math.max(1, Math.round(w0 * s));
       c.height = Math.max(1, Math.round(h0 * s));

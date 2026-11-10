@@ -38,7 +38,7 @@ def evaluate(items, feats, verbose=True):
     results = {}
     for me, hide in (("male", "female"), ("female", "male")):
         contains = [it["group"] in (hide, "mixed") for it in items]
-        hidden = [vision.ImageJudge.decide(f, hide)[0] for f in feats]
+        hidden = [vision.ImageJudge.decide_sentences(f, hide)[0] for f in feats]
         c = np.array(contains)
         h = np.array(hidden)
         leaks = int((c & ~h).sum())

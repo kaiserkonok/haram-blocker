@@ -9,7 +9,7 @@
   "use strict";
   const DEFAULTS = { imageMode: "off", imageStyle: "color", imageColor: "#000000", imageBlur: 40, sites: [] };
   const MIN_SIZE = 40; // px; smaller images (icons) are shown without a check
-  const MAX_SIDE = 384; // images are sent at most this big
+  const MAX_SIDE = 512; // images are sent at most this big (helper: vision.MAX_SIDE)
   const root = document.documentElement;
   if (!root) return;
 
