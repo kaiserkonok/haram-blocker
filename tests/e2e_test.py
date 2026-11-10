@@ -210,6 +210,8 @@ def main() -> int:
             profile,
             headless=True,
             executable_path=os.environ.get("HB_CHROMIUM") or None,
+            # Test runs log to their own folder, never into the real helper's log.
+            env={**os.environ, "HB_LOG_DIR": os.path.join(work, "logs")},
             args=[
                 f"--disable-extensions-except={EXT}",
                 f"--load-extension={EXT}",

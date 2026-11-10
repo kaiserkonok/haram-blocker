@@ -38,7 +38,7 @@ PROTO_IN = sys.stdin.buffer
 PROTO_OUT = sys.stdout.buffer
 sys.stdout = sys.stderr
 
-LOG_DIR = os.path.expanduser("~/.local/state/haram-blocker")
+LOG_DIR = os.environ.get("HB_LOG_DIR") or os.path.expanduser("~/.local/state/haram-blocker")
 os.makedirs(LOG_DIR, exist_ok=True)
 logging.basicConfig(
     filename=os.path.join(LOG_DIR, "helper.log"),
