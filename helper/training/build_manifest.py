@@ -26,7 +26,7 @@ import random
 FEM, MAL = {"Woman", "Girl"}, {"Man", "Boy"}
 
 
-def open_images(oi_dir):
+def open_images(oi_dir, img_dir="img"):
     cls = {r[0]: r[1] for r in csv.reader(open(os.path.join(oi_dir, "class-descriptions-boxable.csv")))}
     picked = json.load(open(os.path.join(oi_dir, "picked.json")))
     want = {x["id"]: x for v in picked.values() for x in v}
@@ -44,7 +44,7 @@ def open_images(oi_dir):
     rng = random.Random(1)
     out = []
     for iid, x in want.items():
-        path = os.path.join(oi_dir, "img", iid + ".jpg")
+        path = os.path.join(oi_dir, img_dir, iid + ".jpg")
         if not os.path.exists(path):
             continue
         g = x["group"]
@@ -78,6 +78,20 @@ def commons(web_dir):
     return out
 
 
+def graphics(g_dir):
+    """Generated website graphics (make_graphics.py): no people."""
+    rng = random.Random(3)
+    out = []
+    for it in json.load(open(os.path.join(g_dir, "items.json"))):
+        r = rng.random()
+        out.append({
+            "path": os.path.join(g_dir, it["file"]), "source": "graphics:" + it["kind"],
+            "split": "quiz" if r < 0.2 else ("tune" if r < 0.36 else "train"),
+            "female": 0, "male": 0, "people": [],
+        })
+    return out
+
+
 def coco(coco_dir):
     out = []
     for it in json.load(open(os.path.join(coco_dir, "eval.json"))):
@@ -95,11 +109,19 @@ def coco(coco_dir):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--openimages", required=True)
+    ap.add_argument("--openimages-dir", default="img", help="image folder inside --openimages")
     ap.add_argument("--commons", required=True)
     ap.add_argument("--coco", required=True)
+    ap.add_argument("--graphics", help="folder from make_graphics.py")
+    ap.add_argument("--only-graphics", action="store_true", help="write only the graphics items")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
-    items = open_images(a.openimages) + commons(a.commons) + coco(a.coco)
+    if a.only_graphics:
+        items = graphics(a.graphics)
+    else:
+        items = open_images(a.openimages, a.openimages_dir) + commons(a.commons) + coco(a.coco)
+        if a.graphics:
+            items += graphics(a.graphics)
     json.dump(items, open(a.out, "w"))
     c = collections.Counter((i["split"], i["source"].split(":")[0], i["female"], i["male"]) for i in items)
     for k in sorted(c):

@@ -3,6 +3,7 @@ const DEFAULTS = {
   channels: [],
   lipSync: true,
   imageMode: "off",
+  imageLevel: "strict",
   imageStyle: "color",
   imageColor: "#000000",
   imageBlur: 40,
@@ -43,6 +44,7 @@ async function render() {
   $("imageStyleRow").hidden = s.imageMode === "off";
   for (const r of document.querySelectorAll('input[name="imageStyle"]')) r.checked = r.value === s.imageStyle;
   $("imageColor").value = s.imageColor;
+  $("imageLevel").value = s.imageLevel === "balanced" ? "balanced" : "strict";
   $("imageBlur").value = s.imageBlur;
 
   const list = (el, items, label, remove) => {
@@ -103,6 +105,7 @@ $("imageMode").onchange = async (e) => {
 for (const r of document.querySelectorAll('input[name="imageStyle"]')) {
   r.onchange = () => chrome.storage.local.set({ imageStyle: r.value });
 }
+$("imageLevel").onchange = (e) => chrome.storage.local.set({ imageLevel: e.target.value });
 $("imageColor").onchange = (e) => chrome.storage.local.set({ imageColor: e.target.value, imageStyle: "color" }).then(render);
 $("imageBlur").onchange = (e) => chrome.storage.local.set({ imageBlur: Number(e.target.value), imageStyle: "blur" }).then(render);
 

@@ -9,6 +9,7 @@ const DEFAULTS = {
   lipSync: true,
   imageMode: "off", // "off" | "male" (hide women) | "female" (hide men)
   imageStyle: "color", // "color" | "blur"
+  imageLevel: "strict", // "strict" (fewest leaks) | "balanced" (hides fewer harmless images)
   imageColor: "#000000",
   imageBlur: 40,
 };
@@ -228,8 +229,8 @@ async function fetchSmall(url) {
   return { data: toB64(await jpeg.arrayBuffer()) };
 }
 
-async function checkImage(src, data, hide) {
-  const key = cacheKey(hide, src);
+async function checkImage(src, data, hide, level) {
+  const key = cacheKey(hide + ":" + level, src);
   if (imgCache.has(key)) return imgCache.get(key);
   if (imgPending.has(key)) return imgPending.get(key);
   const p = (async () => {
@@ -243,7 +244,7 @@ async function checkImage(src, data, hide) {
     const r = await new Promise((resolve, reject) => {
       const id = nextImgId++;
       imgWaiters.set(id, { resolve, reject });
-      native.postMessage({ t: "img", id, hide, data });
+      native.postMessage({ t: "img", id, hide, level, data });
       setTimeout(() => {
         if (imgWaiters.delete(id)) reject(new Error("timeout"));
       }, 20000);
@@ -268,7 +269,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       return;
     }
     const hide = settings.imageMode === "male" ? "female" : "male";
-    checkImage(msg.url, msg.data, hide).then(
+    checkImage(msg.url, msg.data, hide, settings.imageLevel === "balanced" ? "balanced" : "strict").then(
       (r) => sendResponse({ hide: r.hide }),
       // Couldn't check (helper starting, download failed): stay hidden.
       (e) => sendResponse({ hide: true, retry: helper.state !== "ready" || /not ready|stopped|timeout/.test(String(e)) })

@@ -7,7 +7,7 @@
 
 (() => {
   "use strict";
-  const DEFAULTS = { imageMode: "off", imageStyle: "color", imageColor: "#000000", imageBlur: 40, sites: [] };
+  const DEFAULTS = { imageMode: "off", imageLevel: "strict", imageStyle: "color", imageColor: "#000000", imageBlur: 40, sites: [] };
   const MIN_SIZE = 40; // px; smaller images (icons) are shown without a check
   const MAX_SIDE = 512; // images are sent at most this big (helper: vision.MAX_SIDE)
   const root = document.documentElement;
@@ -188,10 +188,10 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !alive()) return;
     chrome.storage.local.get(DEFAULTS).then((v) => {
-      const restyle = settings && (v.imageMode !== settings.imageMode);
+      const restyle = settings && (v.imageMode !== settings.imageMode || v.imageLevel !== settings.imageLevel);
       settings = v;
       if (restyle) {
-        // Switched "I am male/female": hide everything again and re-check.
+        // Switched "I am male/female" or strictness: hide everything again and re-check.
         for (const el of document.querySelectorAll("img, image")) {
           seen.delete(el);
           el.removeAttribute("data-hb");

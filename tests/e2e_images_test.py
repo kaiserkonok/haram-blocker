@@ -14,6 +14,8 @@ Checks:
   * hidden photos are really covered (screenshot pixels are black)
   * photos without people are shown
   * changing an image's source hides it again at once
+  * logos are shown: the project's SVG logo (from another origin, so the
+    extension downloads and draws it itself) and transparent PNG logos
 """
 
 import functools
@@ -76,6 +78,24 @@ def main():
             shutil.copy(os.path.join(folder, name), os.path.join(b_dir if cross else a_dir, name))
             src = f"http://127.0.0.1:{port_b}/{name}" if cross else name
             picks.append((g, k, src))
+    # Logos: the project's SVG logo and generated transparent PNG logos,
+    # served from the other origin.
+    from PIL import Image, ImageDraw
+
+    shutil.copy(os.path.join(ROOT, "docs", "assets", "logo.svg"), os.path.join(b_dir, "logo.svg"))
+    picks.append(("logo", 0, f"http://127.0.0.1:{port_b}/logo.svg"))
+    for k, (shape, color) in enumerate([("circle", "#1f6feb"), ("square", "#d1242f"), ("ring", "#111111")], start=1):
+        im = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        if shape == "circle":
+            d.ellipse([28, 28, 228, 228], fill=color)
+        elif shape == "square":
+            d.rounded_rectangle([40, 40, 216, 216], 30, fill=color)
+        else:
+            d.ellipse([28, 28, 228, 228], outline=color, width=24)
+        im.save(os.path.join(b_dir, f"logo{k}.png"))
+        picks.append(("logo", k, f"http://127.0.0.1:{port_b}/logo{k}.png"))
+
     # a photo with a woman, used for the "source changes" check
     swap = next(os.path.basename(i["url"]) for i in items if i["group"] == "female")
     shutil.copy(os.path.join(folder, swap), os.path.join(a_dir, "swap.jpg"))
@@ -179,7 +199,7 @@ def main():
     print(f"all {len(result)} images decided in {took:.2f}s (page load included)")
     print(f"first painted frame: {len(first['shown'])} images shown, "
           f"{sum(p.startswith('-99999px') for p in first['hiddenStyle'])}/{len(result)} covered")
-    for g in ("female", "mixed", "male", "none"):
+    for g in ("female", "mixed", "male", "none", "logo"):
         print(f"  {g:6s}: hidden {by[g].count('hide')}/{len(by[g])}")
     print(f"photos with women shown in any frame: {leaked or 'none'}  ({len(frames)} frames recorded)")
     print(f"hidden images black on screen: {sum(dark)}/{len(dark)}")
@@ -192,6 +212,7 @@ def main():
     ok &= not leaked
     ok &= all(dark)
     ok &= by["none"].count("hide") <= PER_GROUP // 2
+    ok &= by["logo"].count("hide") == 0  # SVG and transparent logos must show
     ok &= swap_frames is None or not any(swap_frames)
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1

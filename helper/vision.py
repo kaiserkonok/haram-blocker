@@ -248,11 +248,12 @@ class ImageJudge:
                     info[i]["people"][j]["male"] = float(m / tot)
         return info
 
-    def decide(self, info, hide: str) -> tuple[bool, str]:
-        """hide: "female" or "male" — the gender the user wants hidden."""
+    def decide(self, info, hide: str, level: str = "strict") -> tuple[bool, str]:
+        """hide: "female" or "male" — the gender the user wants hidden.
+        level: "strict" (fewest leaks) or "balanced" (hides fewer harmless images)."""
         if info.get("kind") != "trained":
             return self.decide_sentences(info, hide)
-        th = self.th[hide]
+        th = self.th.get(level, self.th["strict"])[hide]
         w = info["w"][0 if hide == "female" else 1]
         c = info["cf"] if hide == "female" else info["cm"]
         if w >= th["whole"]:
@@ -277,6 +278,6 @@ class ImageJudge:
             return True, f"{hide} in image ({whole:.2f})"
         return False, "clear"
 
-    def judge(self, datas, hide):
+    def judge(self, datas, hide, level="strict"):
         images = [self.decode(d) for d in datas]
-        return [self.decide(i, hide) for i in self.features(images)]
+        return [self.decide(i, hide, level) for i in self.features(images)]

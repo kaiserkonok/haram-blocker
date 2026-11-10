@@ -312,19 +312,19 @@ def main() -> None:
         t0 = time.perf_counter()
         try:
             j = get_judge()
-            by_hide: dict[str, list] = {}
+            groups: dict[tuple, list] = {}
             for m in batch:
-                by_hide.setdefault(m.get("hide", "female"), []).append(m)
-            for hide, ms in by_hide.items():
+                groups.setdefault((m.get("hide", "female"), m.get("level", "strict")), []).append(m)
+            for (hide, level), ms in groups.items():
                 datas = [base64.b64decode(m["data"]) for m in ms]
                 try:
-                    results = j.judge(datas, hide)
+                    results = j.judge(datas, hide, level)
                 except Exception:
                     # One bad image shouldn't fail the others: retry singly.
                     results = []
                     for d in datas:
                         try:
-                            results += j.judge([d], hide)
+                            results += j.judge([d], hide, level)
                         except Exception:
                             results.append((True, "could not read image"))
                 for m, (h, why) in zip(ms, results):

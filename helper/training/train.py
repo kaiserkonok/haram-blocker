@@ -29,7 +29,7 @@ import torch
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-LEAK_TARGET = 0.005  # at most 0.5% of images with the hidden gender may be shown
+LEAK_TARGET = float(os.environ.get("HB_LEAK_TARGET", "0.005"))  # max share of hidden-gender images shown
 torch.manual_seed(0)
 
 
@@ -84,13 +84,16 @@ def load(paths):
 
 
 FIXES = json.load(open(os.path.join(HERE, "quiz_label_fixes.json")))["fixes"]
+TRAIN_FIXES = json.load(open(os.path.join(HERE, "train_label_fixes.json")))["fixes"]
 
 
 def apply_fixes(data):
-    """Quiz labels corrected by the visual audit (see quiz_label_fixes.json)."""
+    """Labels corrected by the visual audits (quiz_label_fixes.json for the
+    quiz, train_label_fixes.json for the training pool)."""
     out = []
     for d in data:
-        f = FIXES.get(os.path.basename(d["path"])) if d["split"] == "quiz" else None
+        table = FIXES if d["split"] == "quiz" else TRAIN_FIXES
+        f = table.get(os.path.basename(d["path"]))
         if f == "exclude":
             continue
         if f:
@@ -155,7 +158,10 @@ def evaluate(rows, sc, hide, tw, tc, small_rule=True, crowd=99):
     return leak, over, len(pos), len(neg)
 
 
-def choose(rows, sc, hide):
+LEVELS = {"strict": 0.001, "balanced": 0.002}  # leak target per strictness level
+
+
+def choose(rows, sc, hide, target=None):
     """Thresholds meeting the leak target on the TUNING set with fewest false hides."""
     best = None
     grid = [0.02, 0.03, 0.05, 0.07, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7]
@@ -164,7 +170,7 @@ def choose(rows, sc, hide):
             for tw in grid:
                 for tc in grid + [1.01]:
                     leak, over, _, _ = evaluate(rows, sc, hide, tw, tc, small_rule, crowd)
-                    if leak <= LEAK_TARGET and (best is None or over < best[0]):
+                    if leak <= (target or LEAK_TARGET) and (best is None or over < best[0]):
                         best = (over, tw, tc, small_rule, crowd)
     return best
 
@@ -201,7 +207,7 @@ def baseline(rows):
             if not hid:
                 pw = (100 * d["whole"].float() @ t.T).softmax(-1)
                 hid = bool(pw[sl].sum() >= vision.WHOLE_HIDE)
-            src = d["source"] if d["source"].startswith("commons") else d["source"].split(":")[0]
+            src = d["source"] if d["source"].startswith(("commons", "graphics")) else d["source"].split(":")[0]
             b = by[src]
             if d[hide]:
                 b[0] += not hid
@@ -218,6 +224,34 @@ def baseline(rows):
 
 
 # --------------------------------------------------------------------------- main
+def fold_of(d, k=5):
+    """Stable fold number from the file name (same split every run)."""
+    import zlib
+
+    return zlib.crc32(os.path.basename(d["path"]).encode()) % k
+
+
+def as_tensors(rows):
+    x = torch.stack([d["whole"].float() for d in rows])
+    y = torch.tensor([[d["female"], d["male"]] for d in rows], dtype=torch.float32)
+    cx = [g["emb"].float() for d in rows for g in d["gt"]]
+    cy = [[1.0 if g["gender"] == "female" else 0.0] for d in rows for g in d["gt"]]
+    return x, y, torch.stack(cx), torch.tensor(cy)
+
+
+def train_heads(rows, hidden):
+    """Train both classifiers; 10% of rows are held aside only for early stopping."""
+    import zlib
+
+    stop = [d for d in rows if zlib.crc32(d["path"].encode()) % 10 == 0]
+    fit_rows = [d for d in rows if zlib.crc32(d["path"].encode()) % 10 != 0]
+    x, y, cx, cy = as_tensors(fit_rows)
+    sx, sy, scx, scy = as_tensors(stop)
+    w, _ = fit(x, y, sx, sy, 2, hidden)
+    c, _ = fit(cx, cy, scx, scy, 1, hidden)
+    return w, c
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("embeds", nargs="+")
@@ -225,39 +259,44 @@ def main():
     a = ap.parse_args()
     data = apply_fixes(load(a.embeds))
     print("examples:", collections.Counter((d["split"], d["source"].split(":")[0]) for d in data))
+    pool = [d for d in data if d["split"] in ("train", "tune")]
 
-    _, xtr, ytr = tensors(data, "train")
-    _, xtu, ytu = tensors(data, "tune")
-    ctr, cytr = crops(data, "train")
-    ctu, cytu = crops(data, "tune")
-    print(f"close-ups: train {len(ctr)}, tune {len(ctu)}")
-
-    # Model size chosen on the tuning set.
-    results = []
+    # 5-fold cross-validation: every pool example gets a score from a model
+    # that never saw it. Thresholds (and model size) are chosen on all of
+    # those scores, which is far more stable than one small tuning set.
+    best = None
     for hidden_size in (0, 256):
-        w, wl = fit(xtr, ytr, xtu, ytu, 2, hidden_size)
-        c, cl = fit(ctr, cytr, ctu, cytu, 1, hidden_size)
-        rows, _, _ = tensors(data, "tune")
-        sc = scores(rows, w, c)
-        picks = {h: choose(rows, sc, h) for h in ("female", "male")}
+        oof_rows, oof_sc = [], []
+        for k in range(5):
+            tr = [d for d in pool if fold_of(d) != k]
+            te = [d for d in pool if fold_of(d) == k]
+            w, c = train_heads(tr, hidden_size)
+            oof_rows += te
+            oof_sc += scores(te, w, c)
+        picks = {h: choose(oof_rows, oof_sc, h, LEVELS["balanced"]) for h in ("female", "male")}
         over = sum(p[0] if p else 1.0 for p in picks.values())
-        print(f"hidden={hidden_size}: tune loss whole {wl:.3f} crop {cl:.3f}; "
-              f"false-hide at leak target: female {picks['female'] and round(picks['female'][0], 3)}, "
-              f"male {picks['male'] and round(picks['male'][0], 3)}")
-        results.append((over, hidden_size, w, c, picks))
-    over, hidden_size, w, c, picks = min(results, key=lambda r: r[0])
-    print(f"chosen: hidden={hidden_size}; thresholds {picks}")
+        level_picks = {lv: {h: choose(oof_rows, oof_sc, h, t) for h in ("female", "male")} for lv, t in LEVELS.items()}
+        print(f"hidden={hidden_size}: cross-validated false-hide at the leak target: "
+              f"female {picks['female'] and round(picks['female'][0], 3)}, male {picks['male'] and round(picks['male'][0], 3)}")
+        if best is None or over < best[0]:
+            best = (over, hidden_size, level_picks)
+    _, hidden_size, level_picks = best
+    print(f"chosen: hidden={hidden_size}; thresholds {level_picks}")
 
-    # Final, honest report on the quiz set.
-    rows, _, _ = tensors(data, "quiz")
+    # Final classifiers: trained on the whole pool, thresholds from above.
+    w, c = train_heads(pool, hidden_size)
+
+    # Final, honest report on the quiz set (never used above).
+    rows = [d for d in data if d["split"] == "quiz"]
     sc = scores(rows, w, c)
     report = {}
-    for hide in ("female", "male"):
-        _, tw, tc, small_rule, crowd = picks[hide]
+    for level, hide in [(lv, h) for lv in LEVELS for h in ("female", "male")]:
+        _, tw, tc, small_rule, crowd = level_picks[level][hide]
         by = collections.defaultdict(list)
         for d, s in zip(rows, sc):
-            by[d["source"].split(":")[0] if not d["source"].startswith("commons") else d["source"]].append((d, s))
-        print(f"\nQUIZ — user wants {hide}s hidden (whole>={tw}, close-up>={tc}, small-person rule {small_rule}, crowd>={crowd}):")
+            src = d["source"] if d["source"].startswith(("commons", "graphics")) else d["source"].split(":")[0]
+            by[src].append((d, s))
+        print(f"\nQUIZ [{level}] — user wants {hide}s hidden (whole>={tw}, close-up>={tc}, small-person rule {small_rule}, crowd>={crowd}):")
         tot_leak = tot_pos = 0
         for src, pairs in sorted(by.items()):
             r = [p[0] for p in pairs]
@@ -265,18 +304,19 @@ def main():
             leak, over, npos, nneg = evaluate(r, s_, hide, tw, tc, small_rule, crowd)
             tot_leak += round(leak * npos)
             tot_pos += npos
-            print(f"  {src:28s} shown with {hide}: {round(leak*npos):3d}/{npos:4d}   hidden without: {round(over*nneg):4d}/{nneg:4d} ({100*over:.0f}%)")
-        report[hide] = {"tw": tw, "tc": tc, "small_rule": small_rule, "crowd": crowd, "leaks": tot_leak, "positives": tot_pos}
+            print(f"  {src:36s} shown with {hide}: {round(leak*npos):3d}/{npos:4d}   hidden without: {round(over*nneg):4d}/{nneg:4d} ({100*over:.0f}%)")
+        report.setdefault(level, {})[hide] = {"leaks": tot_leak, "positives": tot_pos}
         print(f"  TOTAL leaks {tot_leak}/{tot_pos} ({100*tot_leak/max(tot_pos,1):.2f}%)")
 
     baseline(rows)
 
     torch.save({
-        "version": 1,
+        "version": 3,
         "hidden": hidden_size,
         "whole": w.state_dict(),
         "crop": c.state_dict(),
-        "thresholds": {h: {"whole": picks[h][1], "crop": picks[h][2], "small": picks[h][3], "crowd": picks[h][4]} for h in picks},
+        "thresholds": {lv: {h: {"whole": p[1], "crop": p[2], "small": p[3], "crowd": p[4]} for h, p in hp.items()}
+                       for lv, hp in level_picks.items()},
         "quiz": report,
     }, a.out)
     print("\nsaved", a.out, f"({os.path.getsize(a.out)//1024} KB)")

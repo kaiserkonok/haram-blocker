@@ -66,8 +66,8 @@ def main():
         worst["w"] = max(worst["w"], max(abs(a - b) for a, b in zip(live["w"], off["w"])))
         worst["c"] = max(worst["c"], abs(live["cf"] - off["cf"]))
         for hide in ("female", "male"):
-            th = ck["thresholds"][hide]
-            a = judge.decide(live, hide)[0]
+            th = ck["thresholds"]["strict"][hide]
+            a = judge.decide(live, hide, "strict")[0]
             b = train.hidden(off, hide, th["whole"], th["crop"], th["small"], th.get("crowd", 99))
             mismatched_decisions += a != b
     print(f"{n} images: largest score difference whole {worst['w']:.4f}, close-up {worst['c']:.4f}; "

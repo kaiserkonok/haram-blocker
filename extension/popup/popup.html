@@ -37,6 +37,13 @@
       <option value="female">I am a woman: hide men</option>
     </select>
     <div id="imageStyleRow">
+      <div class="row between">
+        <span>Strictness</span>
+        <select id="imageLevel" style="width:auto">
+          <option value="strict">Strict (fewest misses)</option>
+          <option value="balanced">Balanced (hides fewer harmless images)</option>
+        </select>
+      </div>
       <div class="row">
         <label class="row"><input type="radio" name="imageStyle" value="color"> Solid color</label>
         <input type="color" id="imageColor">

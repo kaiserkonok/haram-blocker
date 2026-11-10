@@ -1,0 +1,158 @@
+{
+ "_about": "Corrections to TRAINING labels: the 120 training examples whose label most disagreed with a cross-validated model (find_label_errors.py), each checked by eye. 'exclude' = babies/young children, silhouettes, tiny or unrecognisable figures, statues of unclear gender.",
+ "fixes": {
+  "394e4061105eae3c.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "2de9e645fc206cb9.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "8d20cbeffcd4f7dc.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "437.png": {
+   "female": 0,
+   "male": 1
+  },
+  "9a54fedf74dbf0d0.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "a61493e73c80e8ad.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "517.png": {
+   "female": 0,
+   "male": 1
+  },
+  "1a5a8e2cdbdeaab0.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "f27f66644fa4e8b1.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "20a2a94fb2c998c7.jpg": "exclude",
+  "859b6e44ae572ad7.jpg": "exclude",
+  "c16a846baefae10f.jpg": "exclude",
+  "a28ebbc3f4eaa1e3.jpg": "exclude",
+  "2b8a135ba7dbdca8.jpg": "exclude",
+  "9b2823448b008dec.jpg": "exclude",
+  "9cd0e1155ea95a96.jpg": "exclude",
+  "81677b959efddce4.jpg": "exclude",
+  "cfcaebcfbff91320.jpg": "exclude",
+  "aa8e2b1c612805d3.jpg": "exclude",
+  "8a6faa5860d28cca.jpg": "exclude",
+  "957e3ed066e0bcb1.jpg": "exclude",
+  "516.png": "exclude",
+  "8e562fee6ff208f7.jpg": "exclude",
+  "42c842ad41e299a2.jpg": "exclude",
+  "80d768e60a222a65.jpg": "exclude",
+  "bf7e9d1ed968e6f7.jpg": "exclude",
+  "62c4e7ee53c87c4b.jpg": "exclude",
+  "36085edad263ae74.jpg": "exclude",
+  "831ef1ed000ea182.jpg": "exclude",
+  "ec94783ea6030d25.jpg": "exclude",
+  "aecc6fdf5a5f66b9.jpg": "exclude",
+  "3af6157dcee9748b.jpg": "exclude",
+  "82c55e71e3dfe06d.jpg": "exclude",
+  "0ee147db8a6b3908.jpg": "exclude",
+  "211c8b4916e8de1a.jpg": "exclude",
+  "c6eca1e7e03bf5f7.jpg": "exclude",
+  "407.png": "exclude",
+  "1d70a8e100d4ed5f.jpg": "exclude",
+  "5a96f5e1f9be8d42.jpg": "exclude",
+  "dfb32580ad6e3139.jpg": "exclude",
+  "45244c5f24b9aa9b.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "3222979fe1482ede.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "10710daf03ec4f64.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "022c1f420446d118.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "c3cfa71fc24e8110.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "3dd7b65215430aeb.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "5ddad707289127a7.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "7ba1cc93398e29a2.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "f1bf3ad54d907157.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "19d85d98e3a84e43.jpg": {
+   "female": 0,
+   "male": 0
+  },
+  "39fb462f5b52da45.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "219d2359715ad820.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "94ead8b6d52b5942.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "79d01c59ce2804a0.jpg": {
+   "female": 1,
+   "male": 0
+  },
+  "604.png": "exclude",
+  "0406091cb37a00db.jpg": "exclude",
+  "d8a14ada8a8c8a9d.jpg": "exclude",
+  "576.png": "exclude",
+  "555.png": "exclude",
+  "8c3a7ca22c0ac8d9.jpg": "exclude",
+  "387d4b80bc3fdab8.jpg": "exclude",
+  "15328b6de1a77577.jpg": "exclude",
+  "663.png": "exclude",
+  "61a2d01ffedb9fd3.jpg": "exclude",
+  "cae15c72da960bc0.jpg": "exclude",
+  "639.png": "exclude",
+  "2e86400ca8b7653e.jpg": "exclude",
+  "f33f61b1e3968393.jpg": "exclude",
+  "72738fbcfc5e18f4.jpg": "exclude",
+  "a0871c41b480008a.jpg": "exclude",
+  "42c36ba3ef87c91f.jpg": "exclude",
+  "624.png": "exclude",
+  "0f25b5278659caae.jpg": "exclude",
+  "2bf2a32a1547ed07.jpg": "exclude",
+  "d32e6abb4018fc0b.jpg": "exclude",
+  "659.png": "exclude",
+  "22aca783bb6470af.jpg": "exclude",
+  "d98d5167bb649cb0.jpg": "exclude",
+  "559.png": "exclude",
+  "df4939b68bc85f56.jpg": "exclude",
+  "03cb0e5ef257ad9e.jpg": "exclude",
+  "5626576622065547.jpg": "exclude",
+  "1c0906640f31b246.jpg": "exclude",
+  "685.png": "exclude"
+ }
+}

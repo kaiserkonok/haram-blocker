@@ -1,5 +1,5 @@
 {
- "_about": "Corrections to quiz labels after visually checking every quiz image where a label and a model disagreed (71 images). 'exclude' = young child or baby whose gender can't be told, or nothing recognisable.",
+ "_about": "Corrections to quiz labels after visually checking every quiz image where a label and a model disagreed (71 images). 'exclude' = young child or baby whose gender can't be told, or nothing recognisable. Also: Wikimedia 'no people' category images that do show people (13 images).",
  "fixes": {
   "f3c57a5470c0a96d.jpg": {
    "female": 0,
@@ -130,6 +130,61 @@
   "COCO_val2014_000000279994.jpg": {
    "female": 0,
    "male": 0
-  }
+  },
+  "68.png": {
+   "female": 0,
+   "male": 1
+  },
+  "98.png": {
+   "female": 0,
+   "male": 1
+  },
+  "100.png": {
+   "female": 1,
+   "male": 0
+  },
+  "102.png": {
+   "female": 0,
+   "male": 1
+  },
+  "103.png": {
+   "female": 0,
+   "male": 1
+  },
+  "105.png": {
+   "female": 0,
+   "male": 1
+  },
+  "108.png": {
+   "female": 1,
+   "male": 1
+  },
+  "109.png": {
+   "female": 0,
+   "male": 1
+  },
+  "113.png": {
+   "female": 1,
+   "male": 1
+  },
+  "179.png": {
+   "female": 0,
+   "male": 1
+  },
+  "181.png": {
+   "female": 0,
+   "male": 1
+  },
+  "233.png": "exclude",
+  "346.png": "exclude",
+  "61b1d48f59a13381.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "eb7503937dda09ad.jpg": {
+   "female": 0,
+   "male": 1
+  },
+  "cb4e1119824487c7.jpg": "exclude"
  }
 }
