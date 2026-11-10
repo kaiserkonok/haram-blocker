@@ -1,0 +1,22 @@
+/* Haram Blocker — images start hidden until the AI has checked them.
+   Loaded before the page draws anything, so nothing can flash. An image is
+   shown only when it carries data-hb="ok". */
+
+html { --hb-css: 1; }
+
+/* Solid color (default black): the picture is moved out of its box and the
+   box is filled with the color, so not even an outline shows. */
+html:not([data-hb-images="off"]):not([data-hb-style="blur"]) img:not([data-hb="ok"]) {
+  object-position: -99999px -99999px !important;
+  background: var(--hb-color, #000) !important;
+}
+
+/* Blur style. */
+html[data-hb-style="blur"]:not([data-hb-images="off"]) img:not([data-hb="ok"]) {
+  filter: blur(var(--hb-blur, 40px)) !important;
+}
+
+/* Images inside SVG (some sites draw profile photos this way). */
+html:not([data-hb-images="off"]) svg image:not([data-hb="ok"]) {
+  opacity: 0 !important;
+}

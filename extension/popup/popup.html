@@ -30,6 +30,26 @@
   </section>
 
   <section class="card">
+    <div class="label">Hide images</div>
+    <select id="imageMode">
+      <option value="off">Off</option>
+      <option value="male">I am a man: hide women</option>
+      <option value="female">I am a woman: hide men</option>
+    </select>
+    <div id="imageStyleRow">
+      <div class="row">
+        <label class="row"><input type="radio" name="imageStyle" value="color"> Solid color</label>
+        <input type="color" id="imageColor">
+      </div>
+      <div class="row">
+        <label class="row"><input type="radio" name="imageStyle" value="blur"> Blur</label>
+        <input type="range" id="imageBlur" min="10" max="80" step="5">
+      </div>
+      <div class="muted">Images stay hidden until the AI has checked them. If it isn't sure, they stay hidden.</div>
+    </div>
+  </section>
+
+  <section class="card">
     <div class="label">Allowed sites</div>
     <ul id="sites"></ul>
     <div class="label">Allowed YouTube channels</div>

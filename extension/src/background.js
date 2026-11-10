@@ -3,7 +3,15 @@
 // and passes audio between pages and the helper.
 
 const HOST = "com.haram_blocker.cleaner";
-const DEFAULTS = { sites: [], channels: [], lipSync: true };
+const DEFAULTS = {
+  sites: [],
+  channels: [],
+  lipSync: true,
+  imageMode: "off", // "off" | "male" (hide women) | "female" (hide men)
+  imageStyle: "color", // "color" | "blur"
+  imageColor: "#000000",
+  imageBlur: 40,
+};
 
 let native = null;
 let helper = { state: "stopped" };
@@ -31,6 +39,9 @@ function connectHelper() {
     const err = chrome.runtime.lastError && chrome.runtime.lastError.message;
     native = null;
     helper = { state: "error", error: err || "The helper program stopped." };
+    imagesReady = null;
+    for (const [, w] of imgWaiters) w.reject(new Error("helper stopped"));
+    imgWaiters.clear();
     scheduleRetry();
   });
 }
@@ -49,9 +60,20 @@ function onHelperMessage(m) {
       m.sid = Number(m.sid.slice(i + 1));
       page.port.postMessage(m);
     }
+  } else if (m.t === "imgres") {
+    const w = imgWaiters.get(m.id);
+    if (w) {
+      imgWaiters.delete(m.id);
+      w.resolve({ hide: m.hide, why: m.why });
+    }
+  } else if (m.t === "imgready") {
+    if (imagesReadyResolve) imagesReadyResolve(!m.error);
   } else if (m.t === "status") {
     helper = m;
-    if (m.state === "ready") retryMs = 2000;
+    if (m.state === "ready") {
+      retryMs = 2000;
+      warmImages();
+    }
   } else if (m.t === "pong") {
     lastPong = { ...m, at: Date.now() };
   }
@@ -59,6 +81,7 @@ function onHelperMessage(m) {
 
 setInterval(() => {
   if (native && helper.state === "ready") native.postMessage({ t: "ping" });
+  warmImages(); // safety net: load the image models if they're needed but not loaded
 }, 5000);
 
 // ---------------------------------------------------------------- pages
@@ -86,8 +109,147 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
+// ---------------------------------------------------------------- images
+let settings = { ...DEFAULTS };
+chrome.storage.local.get(DEFAULTS).then((v) => {
+  settings = v;
+  syncImageCss();
+  warmImages();
+});
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+  chrome.storage.local.get(DEFAULTS).then((v) => {
+    const modeChanged = v.imageMode !== settings.imageMode;
+    settings = v;
+    if (modeChanged) {
+      syncImageCss();
+      warmImages();
+    }
+  });
+});
+
+// images.css must load before the page draws, so it is registered as a
+// content script only while image hiding is on.
+async function syncImageCss() {
+  const id = "hb-images-css";
+  try {
+    const have = await chrome.scripting.getRegisteredContentScripts({ ids: [id] });
+    if (settings.imageMode !== "off" && !have.length) {
+      await chrome.scripting.registerContentScripts([
+        {
+          id,
+          css: ["src/images.css"],
+          matches: ["<all_urls>"],
+          runAt: "document_start",
+          allFrames: true,
+          matchOriginAsFallback: true,
+          persistAcrossSessions: true,
+        },
+      ]);
+    } else if (settings.imageMode === "off" && have.length) {
+      await chrome.scripting.unregisterContentScripts({ ids: [id] });
+    }
+  } catch (e) {
+    console.warn("image css registration failed", e);
+  }
+}
+
+// Load the image models on the GPU only when the feature is on.
+let imagesReady = null;
+let imagesReadyResolve = null;
+function warmImages() {
+  if (settings.imageMode === "off" || !native || helper.state !== "ready" || imagesReady) return;
+  imagesReady = new Promise((r) => (imagesReadyResolve = r));
+  native.postMessage({ t: "imgwarm" });
+}
+
+const imgWaiters = new Map(); // id -> { resolve, reject }
+let nextImgId = 1;
+const imgCache = new Map(); // "hide|source" -> { hide, why }
+const imgPending = new Map();
+const IMG_CACHE_MAX = 5000;
+
+function cacheKey(hide, src) {
+  if (src.length > 300) {
+    // data: URLs can be huge; a cheap hash is enough as a key.
+    let h = 0;
+    for (let i = 0; i < src.length; i += 7) h = (h * 31 + src.charCodeAt(i)) | 0;
+    src = src.slice(0, 100) + "#" + h + ":" + src.length;
+  }
+  return hide + "|" + src;
+}
+
+function toB64(buf) {
+  const u8 = new Uint8Array(buf);
+  if (u8.toBase64) return u8.toBase64();
+  let s = "";
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+// Download an image the page wouldn't let us read, shrink it, JPEG it.
+async function fetchSmall(url) {
+  const res = await fetch(url, { credentials: "omit" });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const bmp = await createImageBitmap(await res.blob());
+  const s = Math.min(1, 384 / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * s));
+  const h = Math.max(1, Math.round(bmp.height * s));
+  if (Math.min(bmp.width, bmp.height) < 40) return { tiny: true };
+  const c = new OffscreenCanvas(w, h);
+  c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+  bmp.close();
+  const blob = await c.convertToBlob({ type: "image/jpeg", quality: 0.85 });
+  return { data: toB64(await blob.arrayBuffer()) };
+}
+
+async function checkImage(src, data, hide) {
+  const key = cacheKey(hide, src);
+  if (imgCache.has(key)) return imgCache.get(key);
+  if (imgPending.has(key)) return imgPending.get(key);
+  const p = (async () => {
+    if (!data) {
+      const f = await fetchSmall(src);
+      if (f.tiny) return { hide: false, why: "tiny" };
+      data = f.data;
+    }
+    warmImages();
+    if (!imagesReady || !(await imagesReady)) throw new Error("image models not ready");
+    const r = await new Promise((resolve, reject) => {
+      const id = nextImgId++;
+      imgWaiters.set(id, { resolve, reject });
+      native.postMessage({ t: "img", id, hide, data });
+      setTimeout(() => {
+        if (imgWaiters.delete(id)) reject(new Error("timeout"));
+      }, 20000);
+    });
+    imgCache.set(key, r);
+    if (imgCache.size > IMG_CACHE_MAX) imgCache.delete(imgCache.keys().next().value);
+    return r;
+  })();
+  imgPending.set(key, p);
+  try {
+    return await p;
+  } finally {
+    imgPending.delete(key);
+  }
+}
+
 // ---------------------------------------------------------------- popup
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.t === "img") {
+    if (settings.imageMode === "off") {
+      sendResponse({ hide: false });
+      return;
+    }
+    const hide = settings.imageMode === "male" ? "female" : "male";
+    checkImage(msg.url, msg.data, hide).then(
+      (r) => sendResponse({ hide: r.hide }),
+      // Couldn't check (helper starting, download failed): stay hidden.
+      (e) => sendResponse({ hide: true, retry: helper.state !== "ready" || /not ready|stopped|timeout/.test(String(e)) })
+    );
+    return true;
+  }
   if (msg.t === "getStatus") {
     const tabStats = [...pages.values()]
       .filter((p) => p.tabId === msg.tabId && p.stats && Date.now() - p.stats.at < 5000)
@@ -102,9 +264,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 });
 
+// Fill in settings that don't exist yet; never overwrite the user's choices.
 chrome.runtime.onInstalled.addListener(async () => {
-  const s = await chrome.storage.local.get(DEFAULTS);
-  await chrome.storage.local.set(s);
+  const have = await chrome.storage.local.get(null);
+  const missing = {};
+  for (const [k, v] of Object.entries(DEFAULTS)) if (!(k in have)) missing[k] = v;
+  if (Object.keys(missing).length) await chrome.storage.local.set(missing);
 });
 
 // Start the helper as soon as Chrome starts, so the AI is warm before the

@@ -16,11 +16,21 @@ if [ ! -x "$HELPER/.venv/bin/python" ]; then
   command -v uv >/dev/null || { echo "Please install uv first: https://docs.astral.sh/uv/"; exit 1; }
   uv venv --python 3.12 "$HELPER/.venv"
   uv pip install --python "$HELPER/.venv/bin/python" torch torchaudio --index-url https://download.pytorch.org/whl/cu128
-  uv pip install --python "$HELPER/.venv/bin/python" demucs soundfile numpy
+  uv pip install --python "$HELPER/.venv/bin/python" torchvision --index-url https://download.pytorch.org/whl/cu128
+  uv pip install --python "$HELPER/.venv/bin/python" demucs soundfile numpy open_clip_torch pillow
 fi
+# Older installs: add the image-check packages if missing.
+"$HELPER/.venv/bin/python" -c "import torchvision, open_clip" 2>/dev/null || {
+  uv pip install --python "$HELPER/.venv/bin/python" torchvision --index-url https://download.pytorch.org/whl/cu128
+  uv pip install --python "$HELPER/.venv/bin/python" open_clip_torch pillow
+}
 
-echo "Downloading the AI model (one time)..."
+echo "Downloading the AI models (one time)..."
 "$HELPER/.venv/bin/python" -c "from demucs.pretrained import get_model; get_model('htdemucs_ft')" 2>/dev/null
+"$HELPER/.venv/bin/python" -c "
+from torchvision.models.detection import fasterrcnn_mobilenet_v3_large_320_fpn as f, FasterRCNN_MobileNet_V3_Large_320_FPN_Weights as W
+f(weights=W.DEFAULT)
+import open_clip; open_clip.create_model_and_transforms('ViT-B-16', pretrained='openai')" 2>/dev/null
 
 MANIFEST=$(cat <<JSON
 {

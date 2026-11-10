@@ -1,4 +1,12 @@
-const DEFAULTS = { sites: [], channels: [], lipSync: true };
+const DEFAULTS = {
+  sites: [],
+  channels: [],
+  lipSync: true,
+  imageMode: "off",
+  imageStyle: "color",
+  imageColor: "#000000",
+  imageBlur: 40,
+};
 const $ = (id) => document.getElementById(id);
 let tab = null;
 let info = { host: "", channel: null };
@@ -28,6 +36,11 @@ async function render() {
   }
 
   $("lipSync").checked = s.lipSync;
+  $("imageMode").value = s.imageMode;
+  $("imageStyleRow").hidden = s.imageMode === "off";
+  for (const r of document.querySelectorAll('input[name="imageStyle"]')) r.checked = r.value === s.imageStyle;
+  $("imageColor").value = s.imageColor;
+  $("imageBlur").value = s.imageBlur;
 
   const list = (el, items, label, remove) => {
     el.innerHTML = "";
@@ -78,6 +91,15 @@ $("toggleChannel").onclick = async () => {
 };
 
 $("lipSync").onchange = (e) => chrome.storage.local.set({ lipSync: e.target.checked });
+$("imageMode").onchange = async (e) => {
+  await chrome.storage.local.set({ imageMode: e.target.value });
+  render();
+};
+for (const r of document.querySelectorAll('input[name="imageStyle"]')) {
+  r.onchange = () => chrome.storage.local.set({ imageStyle: r.value });
+}
+$("imageColor").onchange = (e) => chrome.storage.local.set({ imageColor: e.target.value, imageStyle: "color" }).then(render);
+$("imageBlur").onchange = (e) => chrome.storage.local.set({ imageBlur: Number(e.target.value), imageStyle: "blur" }).then(render);
 
 async function refreshStatus() {
   const r = await chrome.runtime.sendMessage({ t: "getStatus", tabId: tab && tab.id });

@@ -35,6 +35,7 @@ Haram Blocker flips the order. Every video's sound goes through an AI model on y
 - **Works with blur extensions.** If an extension like HaramBlur blurs a video, the blur also covers Haram Blocker's delayed picture. Because that picture is shown 1 s late, a blur that reacts up to a second late still lands *before* you see the frame.
 - **Instant controls.** Pause, play and scrolling to the next reel react immediately. Only a *new* video waits about a second while its voice is cleaned.
 - **Works on any site.** It hooks every `<video>`, `<audio>` and Web Audio output in Chrome, not a list of supported sites. Tested on YouTube and YouTube Shorts; reports from other sites are welcome.
+- **Hides images of the opposite gender (optional).** Pick "I am a man" or "I am a woman" in the menu. Every image starts covered (solid black by default, or blurred) and is shown only after the AI has checked it. If it isn't sure, the image stays covered.
 - **Allowed list.** Sites and YouTube channels you trust (Quran recitation, for example) play untouched, with no delay. Ads on allowed channels are still cleaned.
 - **Private.** Everything runs on your machine. No servers, no accounts, no analytics, and nothing leaves your computer.
 
@@ -46,9 +47,11 @@ Measured on an RTX 5060 Ti:
 |---|---|
 | Music removed | about **65 dB** quieter, effectively silent |
 | Voice quality | live streaming matches whole-file separation |
-| GPU while a video plays | about **17–20%**, **~22 W** extra, **~400–700 MB** VRAM |
+| GPU while a video plays | about **17–20%**, **~22 W** extra, **~400–700 MB** VRAM (image check adds ~1 GB VRAM when on) |
 | GPU when nothing is playing | **0%**. The card stays in its lowest power state. |
 | Processing time per 0.2 s piece | about **35 ms**, well inside the 1 s budget |
+| Image check | about **8–13 ms** per image; a page of 32 images is ready in ~0.6 s |
+| Image check accuracy (530 COCO photos) | **0** opposite-gender photos shown in either setting; about 45% of same-gender photos also stay covered, often because someone of the other gender is in the background |
 
 ## Install
 
@@ -89,6 +92,20 @@ flowchart LR
 4. **Lip sync.** Video frames are captured with `requestVideoFrameCallback` and drawn 1.0 s late onto a canvas that sits over the video.
 5. **Instant controls.** Pausing freezes the whole delay line, sound and picture together. Resuming continues from the buffer, so there's no wait. Switching videos drops the queue at once.
 
+### Image hiding
+
+```mermaid
+flowchart LR
+    A["Page loads"] --> B["images.css covers<br/>every image"]
+    B --> C["Small copy sent<br/>to the helper"]
+    C --> D["Finder: Faster R-CNN<br/>where are the people?"]
+    D --> E["Judge: CLIP ViT-B/16<br/>woman or man?"]
+    E -->|"opposite gender<br/>or unsure"| F["stays covered"]
+    E -->|clear| G["shown"]
+```
+
+The stylesheet is injected before the page draws, so images are covered from the first frame. The finder ([Faster R-CNN MobileNetV3](https://pytorch.org/vision/stable/models/faster_rcnn.html), torchvision) locates people. The judge ([CLIP](https://github.com/openai/CLIP) ViT-B/16) looks at each person close up, and at the whole image to catch people the finder missed, body close-ups and drawings. Images the page won't let the extension read are downloaded again by the extension, shrunk to 384 px and sent to the helper. Results are cached. Sound always takes priority on the GPU, so a page full of images never causes gaps in the voice.
+
 <details>
 <summary><b>Project layout</b></summary>
 
@@ -97,14 +114,19 @@ extension/
   manifest.json
   src/inject.js      page script: reroutes audio, lip-sync canvas, allowed list
   src/worklet.js     real-time chunking and fixed-delay playback
+  src/images.js      sends images to be checked, shows the clear ones
+  src/images.css     covers every image until it is checked
   src/bridge.js      connects the page to the extension
   src/background.js  keeps the GPU helper running, routes audio
   popup/             status and allowed list
 helper/
   host.py            native messaging host, streaming separation on CUDA
+  vision.py          image check: finder + judge
   test_stream.py     voice quality, music leak, real-time timing
+  test_vision.py     image check accuracy on labeled photos
 tests/
-  e2e_test.py        full browser test with Chromium + extension + helper
+  e2e_test.py        full browser test: music removal, lip sync, controls
+  e2e_images_test.py full browser test: images covered from the first frame
 install.sh
 ```
 </details>
@@ -133,6 +155,7 @@ Because most videos with background music are worth watching: lectures, vlogs, n
 
 - Linux + NVIDIA + Chromium-based browsers only, for now.
 - Videos from servers that block cross-origin access (some TikTok CDNs) can't be read by Web Audio, so they play silent rather than unfiltered.
+- Image hiding covers `<img>` and SVG images. CSS background images, video posters and images inside shadow DOM are not covered yet. Videos themselves are not checked for people yet.
 - If a site puts the bare `<video>` element into fullscreen, the lip-sync canvas can't cover it. The audio is still cleaned, but the picture may run 1 s ahead.
 
 ## Roadmap
@@ -140,6 +163,8 @@ Because most videos with background music are worth watching: lectures, vlogs, n
 - [ ] Windows and macOS installers
 - [ ] AMD / Apple Silicon / CPU backends
 - [ ] Lower start delay (smaller pieces on fast GPUs)
+- [ ] Check video frames for people, using the 1 s buffer that already exists
+- [ ] CSS background images
 - [ ] Firefox support
 - [ ] Chrome Web Store release
 
@@ -149,8 +174,12 @@ Because most videos with background music are worth watching: lectures, vlogs, n
 # helper only: voice quality, music leak and real-time timing
 helper/.venv/bin/python helper/test_stream.py music.mp3 speech.wav
 
-# full browser test (needs Playwright and its Chromium)
+# image check accuracy (eval.json lists photos with a female/male/mixed/none group)
+helper/.venv/bin/python helper/test_vision.py eval.json photos/
+
+# full browser tests (need Playwright and its Chromium)
 python tests/e2e_test.py music.mp3 speech.wav
+python tests/e2e_images_test.py eval.json photos/
 ```
 
 The tests mix a speech recording over music, so the perfect answer is known. They check that the music-only part comes out silent, the voice comes through, the first second is silent, there are no gaps, and that pause, resume and video switching are instant.
@@ -161,7 +190,7 @@ Issues and pull requests are welcome. If music ever leaks through, please open a
 
 ## Credits
 
-Source separation by [Demucs](https://github.com/adefossez/demucs) (Alexandre Défossez, Meta AI), MIT license.
+Source separation by [Demucs](https://github.com/adefossez/demucs) (Alexandre Défossez, Meta AI), MIT license. People detection by [torchvision](https://github.com/pytorch/vision) Faster R-CNN, BSD license. Image understanding by [CLIP](https://github.com/openai/CLIP) (OpenAI) via [OpenCLIP](https://github.com/mlfoundations/open_clip), MIT license. Image accuracy measured on [COCO](https://cocodataset.org) photos.
 
 ## License
 

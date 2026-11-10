@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Haram Blocker",
-  "version": "0.2.0",
-  "description": "Removes music from videos live, keeping only the voices. Runs the AI on your own GPU.",
+  "version": "0.3.0",
+  "description": "Removes music from videos live, keeping only the voices, and hides images of the opposite gender. Runs the AI on your own GPU.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAowdiiU8mbp1V6A8/iFRDkDtbs2i2KY0l+Owbk1ape8nL1h6vVc0mhoGcWA7vlfDjJQKKyKCqC1sEOtfq2Cqs9/CUYCzzZ0kmpg9+Fg7X1SCMWLtgcoUuivfoh01FbS6xjK6IVuu5fpbvy9W070eQY0RWrgwAmscNWoUXvIP+FHqZNxGrhm10tfiMXvXOptBXcp09zfASzEAKl5FVE8XqPAN9TWpHIdCmECvMPKSNnGzf+dQ1VDWCZrrlGMpnU/QsRhpkN7cdbWCAFU8GsO6KWenQWkdR6y055VsbeFvKoadoWixR7rqvse7A9icvk90rwHN/KgT0eamYaWOI6eH39QIDAQAB",
   "permissions": [
     "nativeMessaging",
     "storage",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -50,12 +51,26 @@
       "match_about_blank": true,
       "match_origin_as_fallback": true,
       "world": "MAIN"
+    },
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/images.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true,
+      "world": "ISOLATED"
     }
   ],
   "web_accessible_resources": [
     {
       "resources": [
-        "src/worklet.js"
+        "src/worklet.js",
+        "src/images.css"
       ],
       "matches": [
         "<all_urls>"

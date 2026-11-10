@@ -21,8 +21,22 @@ import numpy as np
 
 log = logging.getLogger("helper")
 
-FEMALE = ["a photo of a woman", "a photo of a girl", "a photo of a lady", "a drawing of a woman"]
-MALE = ["a photo of a man", "a photo of a boy", "a photo of a gentleman", "a drawing of a man"]
+FEMALE = [
+    "a photo of a woman",
+    "a photo of a girl",
+    "a photo of a lady",
+    "a drawing of a woman",
+    "a close-up of a woman's body",
+    "women's clothing",
+]
+MALE = [
+    "a photo of a man",
+    "a photo of a boy",
+    "a photo of a gentleman",
+    "a drawing of a man",
+    "a close-up of a man's body",
+    "men's clothing",
+]
 OTHER = [
     "a photo of an object",
     "a photo of food",

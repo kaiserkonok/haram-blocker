@@ -17,3 +17,6 @@ ul { list-style: none; padding: 0; margin: 0 0 6px; }
 li { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--line); }
 li button { padding: 1px 8px; }
 li.empty { color: var(--muted); border: 0; }
+select { width: 100%; padding: 4px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; margin: 4px 0; }
+input[type="color"] { width: 32px; height: 22px; border: 0; padding: 0; background: none; }
+input[type="range"] { flex: 1; }
