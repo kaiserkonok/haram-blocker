@@ -35,7 +35,7 @@ Haram Blocker flips the order. Every video's sound goes through an AI model on y
 - **Works with blur extensions.** If an extension like HaramBlur blurs a video, the blur also covers Haram Blocker's delayed picture. Because that picture is shown 1 s late, a blur that reacts up to a second late still lands *before* you see the frame.
 - **Instant controls.** Pause, play and scrolling to the next reel react immediately. Only a *new* video waits about a second while its voice is cleaned.
 - **Works on any site.** It hooks every `<video>`, `<audio>` and Web Audio output in Chrome, not a list of supported sites. Tested on YouTube and YouTube Shorts; reports from other sites are welcome.
-- **Hides images of the opposite gender (optional).** Pick "I am a man" or "I am a woman" in the menu. Every image starts covered (solid black by default, or blurred) and is shown only after the AI has checked it. If it isn't sure, the image stays covered.
+- **Hides images of the opposite gender (optional).** Pick "I am a man" or "I am a woman" in the menu. Every image starts covered (solid black by default, or blurred) and is shown only after the AI has checked it. Logos, icons and charts are recognised as harmless. Two strictness levels: strict (default) and balanced.
 - **Allowed list.** Sites and YouTube channels you trust (Quran recitation, for example) play untouched, with no delay. Ads on allowed channels are still cleaned.
 - **Private.** Everything runs on your machine. No servers, no accounts, no analytics, and nothing leaves your computer.
 
@@ -51,7 +51,7 @@ Measured on an RTX 5060 Ti:
 | GPU when nothing is playing | **0%**. The card stays in its lowest power state. |
 | Processing time per 0.2 s piece | about **35 ms**, well inside the 1 s budget |
 | Image check | about **8–13 ms** per image; a page of 32 images is ready in ~0.6 s |
-| Image check accuracy (530 COCO photos) | **0** opposite-gender photos shown in either setting; about 45% of same-gender photos also stay covered, often because someone of the other gender is in the background |
+| Image check, quiz of ~2,300 photos + art + graphics never used in training | strict: **0.17%** of photos with a woman shown, **0.26%** with a man; logos/icons/charts ~1% hidden by mistake ([details](helper/training/README.md)) |
 
 ## Install
 
@@ -99,12 +99,12 @@ flowchart LR
     A["Page loads"] --> B["images.css covers<br/>every image"]
     B --> C["Small copy sent<br/>to the helper"]
     C --> D["Finder: Faster R-CNN<br/>where are the people?"]
-    D --> E["Judge: CLIP ViT-B/16<br/>woman or man?"]
+    D --> E["Judge: classifiers on CLIP<br/>woman or man?"]
     E -->|"opposite gender<br/>or unsure"| F["stays covered"]
     E -->|clear| G["shown"]
 ```
 
-The stylesheet is injected before the page draws, so images are covered from the first frame. The finder ([Faster R-CNN MobileNetV3](https://pytorch.org/vision/stable/models/faster_rcnn.html), torchvision) locates people. The judge ([CLIP](https://github.com/openai/CLIP) ViT-B/16) looks at each person close up, and at the whole image to catch people the finder missed, body close-ups and drawings. Images the page won't let the extension read are downloaded again by the extension, shrunk to 384 px and sent to the helper. Results are cached. Sound always takes priority on the GPU, so a page full of images never causes gaps in the voice.
+The stylesheet is injected before the page draws, so images are covered from the first frame. The finder ([Faster R-CNN MobileNetV3](https://pytorch.org/vision/stable/models/faster_rcnn.html), torchvision) locates people. Two small classifiers trained on top of [CLIP](https://github.com/openai/CLIP) ViT-B/16 then decide: one looks at each person close up, the other at the whole image (catching drawings, paintings, body close-ups and people the finder missed). They were trained on audited, public data and tested on a separate quiz set; see [helper/training](helper/training/README.md). Images the page won't let the extension read are downloaded again by the extension, shrunk to 384 px and sent to the helper. Results are cached. Sound always takes priority on the GPU, so a page full of images never causes gaps in the voice.
 
 <details>
 <summary><b>Project layout</b></summary>
