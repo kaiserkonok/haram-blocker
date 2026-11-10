@@ -58,6 +58,18 @@ MAX_PEOPLE = 6  # close-ups judged per image
 MIN_CROP = 20  # px; smaller people can't be judged -> counted as "unclear"
 
 
+def flatten(img):
+    """RGB on a white background (transparent logos would otherwise turn black)."""
+    from PIL import Image
+
+    if img.mode in ("RGBA", "LA", "P", "PA") or "transparency" in img.info:
+        img = img.convert("RGBA")
+        bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+        bg.alpha_composite(img)
+        img = bg
+    return img.convert("RGB")
+
+
 class ImageJudge:
     def __init__(self, device):
         import open_clip
@@ -94,7 +106,7 @@ class ImageJudge:
 
         img = Image.open(io.BytesIO(data))
         img.draft("RGB", (448, 448))  # fast JPEG downscale while decoding
-        return img.convert("RGB")
+        return flatten(img)
 
     def to_tensor(self, img):
         a = np.asarray(img, dtype=np.uint8)

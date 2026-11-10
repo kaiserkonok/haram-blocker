@@ -27,7 +27,7 @@ import vision  # noqa: E402
 
 
 def load_small(path):
-    img = Image.open(path).convert("RGB")
+    img = vision.flatten(Image.open(path))
     img.thumbnail((384, 384))
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=85)

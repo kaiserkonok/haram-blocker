@@ -187,20 +187,45 @@ function toB64(buf) {
   return btoa(s);
 }
 
+// SVG images are drawn in a hidden extension page (workers can't decode SVG).
+let offscreenCreating = null;
+async function rasterSvg(text) {
+  if (!(await chrome.offscreen.hasDocument())) {
+    offscreenCreating =
+      offscreenCreating ||
+      chrome.offscreen
+        .createDocument({
+          url: "src/offscreen.html",
+          reasons: ["DOM_PARSER"],
+          justification: "Draw SVG images so they can be checked",
+        })
+        .finally(() => (offscreenCreating = null));
+    await offscreenCreating;
+  }
+  const r = await chrome.runtime.sendMessage({ target: "offscreen", t: "raster", svg: text });
+  if (!r || !r.data) throw new Error("SVG could not be drawn: " + (r && r.error));
+  return { data: r.data };
+}
+
 // Download an image the page wouldn't let us read, shrink it, JPEG it.
 async function fetchSmall(url) {
   const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) throw new Error("HTTP " + res.status);
-  const bmp = await createImageBitmap(await res.blob());
+  const blob = await res.blob();
+  if (/svg/i.test(blob.type) || /\.svg([?#]|$)/i.test(url)) return rasterSvg(await blob.text());
+  const bmp = await createImageBitmap(blob);
   const s = Math.min(1, 384 / Math.max(bmp.width, bmp.height));
   const w = Math.max(1, Math.round(bmp.width * s));
   const h = Math.max(1, Math.round(bmp.height * s));
   if (Math.min(bmp.width, bmp.height) < 40) return { tiny: true };
   const c = new OffscreenCanvas(w, h);
-  c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; // transparent parts on white, not black
+  g.fillRect(0, 0, w, h);
+  g.drawImage(bmp, 0, 0, w, h);
   bmp.close();
-  const blob = await c.convertToBlob({ type: "image/jpeg", quality: 0.85 });
-  return { data: toB64(await blob.arrayBuffer()) };
+  const jpeg = await c.convertToBlob({ type: "image/jpeg", quality: 0.85 });
+  return { data: toB64(await jpeg.arrayBuffer()) };
 }
 
 async function checkImage(src, data, hide) {

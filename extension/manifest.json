@@ -8,7 +8,8 @@
     "nativeMessaging",
     "storage",
     "tabs",
-    "scripting"
+    "scripting",
+    "offscreen"
   ],
   "host_permissions": [
     "<all_urls>"

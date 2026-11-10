@@ -84,7 +84,10 @@
     const c = document.createElement("canvas");
     c.width = Math.max(1, Math.round(img.naturalWidth * s));
     c.height = Math.max(1, Math.round(img.naturalHeight * s));
-    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; // transparent parts on white, not black
+    g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(img, 0, 0, c.width, c.height);
     return c.toDataURL("image/jpeg", 0.85).split(",")[1]; // throws if tainted
   }
 
@@ -98,18 +101,22 @@
 
     let data = null;
     if (el instanceof HTMLImageElement) {
-      if (!el.complete || !el.naturalWidth) {
+      // SVGs without a set size report 0 x 0 but can still be drawn.
+      const svg = /\.svg([?#]|$)/i.test(src) || src.startsWith("data:image/svg");
+      if (!el.complete || (!el.naturalWidth && !svg)) {
         seen.delete(el); // checked again on its load event
         return;
       }
-      if (Math.min(el.naturalWidth, el.naturalHeight) < MIN_SIZE) {
+      if (el.naturalWidth && Math.min(el.naturalWidth, el.naturalHeight) < MIN_SIZE) {
         el.setAttribute("data-hb", "ok");
         return;
       }
-      try {
-        data = snapshot(el);
-      } catch (e) {
-        data = null;
+      if (el.naturalWidth) {
+        try {
+          data = snapshot(el);
+        } catch (e) {
+          data = null; // page won't let us read it; the background downloads it
+        }
       }
     }
 
