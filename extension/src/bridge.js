@@ -11,6 +11,18 @@
   const queries = new Map();
   let nextQid = 1;
 
+  // After the extension is reloaded or updated, scripts left in tabs that
+  // were already open lose their connection to it. Stop quietly instead of
+  // throwing "Extension context invalidated" (the page stays silent until it
+  // is refreshed, which loads the new version).
+  function alive() {
+    try {
+      return !!(chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ---- Handshake with the page script (either one may load first).
   window.addEventListener("message", (e) => {
     if (e.source !== window || !e.data || main) return;
@@ -27,7 +39,15 @@
   // ---- Settings
   const DEFAULTS = { sites: [], channels: [], lipSync: true };
   async function sendConfig() {
-    if (!main) return;
+    if (!main || !alive()) return;
+    try {
+      await sendConfigUnsafe();
+    } catch (e) {
+      // extension went away mid-way; nothing to do
+    }
+  }
+
+  async function sendConfigUnsafe() {
     if (workletSource === null) {
       try {
         workletSource = await (await fetch(WORKLET_URL)).text();
@@ -64,6 +84,7 @@
   // ---- Background connection (made lazily, re-made if the worker restarts)
   function background() {
     if (bg) return bg;
+    if (!alive()) throw new Error("extension reloaded");
     bg = chrome.runtime.connect({ name: "page" });
     bg.onMessage.addListener((m) => {
       if (m.t === "out" && main) {
