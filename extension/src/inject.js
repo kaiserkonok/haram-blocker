@@ -33,6 +33,8 @@
   const origAttachShadow = Element.prototype.attachShadow;
   const destinationOf = Object.getOwnPropertyDescriptor(BaseAC.prototype, "destination").get;
   const MediaEl = HTMLMediaElement;
+  const volumeDesc = Object.getOwnPropertyDescriptor(MediaEl.prototype, "volume");
+  const mutedDesc = Object.getOwnPropertyDescriptor(MediaEl.prototype, "muted");
 
   const log = (...a) => console.debug("[haram-blocker]", ...a);
 
@@ -99,6 +101,11 @@
       // Sound enters here. Until the worklet is loaded this goes nowhere,
       // i.e. silence — never the original audio.
       this.input = ctx.createGain();
+      // Everything leaves through here; the element's volume/mute is applied
+      // on this gain so changes are heard at once, not 1 s later.
+      this.output = ctx.createGain();
+      origConnect.call(this.output, destinationOf.call(ctx));
+      this.owners = new Set(); // media elements whose sound ends here (page contexts)
       pipelineById.set(this.id, this);
       this.ready = this.init().catch((e) => log("cleaner failed to start; staying silent", e));
     }
@@ -130,9 +137,9 @@
       node.port.postMessage({ t: "flush", epoch: this.epoch });
       node.port.postMessage({ t: "freeze", on: this.frozen });
       if (this.disposed) return;
-      origConnect.call(node, destinationOf.call(this.ctx));
+      origConnect.call(node, this.output);
       this.node = node;
-      origConnect.call(this.input, this.bypassed ? destinationOf.call(this.ctx) : node);
+      origConnect.call(this.input, this.bypassed ? this.output : node);
       if (document.documentElement.hasAttribute("data-haram-blocker-test")) this.attachTestProbe();
     }
 
@@ -146,7 +153,7 @@
         return a;
       };
       const aIn = probe(this.input);
-      const aOut = probe(this.node);
+      const aOut = probe(this.output);
       const buf = new Float32Array(2048);
       const rms = (a) => {
         a.getFloatTimeDomainData(buf);
@@ -185,11 +192,21 @@
       this.bypassed = on;
       this.flush();
       if (!this.node) return; // init() wires it the right way once loaded
-      const dest = destinationOf.call(this.ctx);
       try {
-        origDisconnect.call(this.input, on ? this.node : dest);
+        origDisconnect.call(this.input, on ? this.node : this.output);
       } catch (e) {}
-      origConnect.call(this.input, on ? dest : this.node);
+      origConnect.call(this.input, on ? this.output : this.node);
+    }
+
+    // Volume at the very end of the chain: takes effect immediately (a 4 ms
+    // ramp avoids a click).
+    setGain(g) {
+      const p = this.output.gain;
+      if (this.gainValue === g) return;
+      this.gainValue = g;
+      const t = this.ctx.currentTime;
+      p.cancelScheduledValues(t);
+      p.setTargetAtTime(g, t, 0.004);
     }
 
     dispose() {
@@ -197,6 +214,9 @@
       pipelineById.delete(this.id);
       try {
         origDisconnect.call(this.input);
+      } catch (e) {}
+      try {
+        origDisconnect.call(this.output);
       } catch (e) {}
       if (this.node) {
         try {
@@ -257,6 +277,11 @@
     if (!mediaCtx) {
       mediaCtx = new AC({ latencyHint: "playback" });
       ourContexts.add(mediaCtx);
+      // Once sound is allowed, muted videos can be captured too (see
+      // Hook.applyVolume), so unmuting is instant.
+      mediaCtx.addEventListener("statechange", () => {
+        for (const h of liveHooks) h.applyVolume();
+      });
     }
     return mediaCtx;
   }
@@ -288,6 +313,13 @@
       this.waiting = false;
       this._pipe = null;
       this.pagePipe = null;
+      // Volume/mute as the page set them. While "virtual", the element itself
+      // plays at full volume into the cleaner and these are applied at the
+      // cleaner's output, so they take effect at once.
+      this.vVolume = volumeDesc.get.call(el);
+      this.vMuted = mutedDesc.get.call(el);
+      this.virtual = false;
+      this.selfEvents = 0; // volumechange events caused by our own writes
       this.overlay = el instanceof HTMLVideoElement ? new Overlay(el) : null;
       liveHooks.add(this);
 
@@ -344,12 +376,81 @@
       this.setMode("clean");
       this.refresh();
       this.updateFreeze();
+      this.applyVolume();
     }
 
     // Our own cleaner for this element, created when needed.
     get pipe() {
-      if (!this._pipe) this._pipe = new Pipeline(getMediaCtx(), this.shouldFreeze());
+      if (!this._pipe) {
+        this._pipe = new Pipeline(getMediaCtx(), this.shouldFreeze());
+        this._pipe.setGain(this.virtual ? this.gain() : 1);
+      }
       return this._pipe;
+    }
+
+    gain() {
+      return this.vMuted ? 0 : this.vVolume;
+    }
+
+    // Where this element's volume can be applied: its own cleaner, or the
+    // page context's cleaner if this element is the only one feeding it.
+    // null: can't apply it separately; the element's own volume is used.
+    gainPipe() {
+      if (this.el.hasAttribute("controls")) return null; // browser's own volume slider
+      if (this.route === "own") return this.pipe;
+      return this.pagePipe.owners.size === 1 ? this.pagePipe : null;
+    }
+
+    applyVolume() {
+      const p = this.gainPipe();
+      if (!p) {
+        if (this.virtual) {
+          this.virtual = false;
+          if (this.route === "page") this.pagePipe.setGain(1);
+          this.writeReal(this.vVolume, this.vMuted);
+        }
+        return;
+      }
+      this.virtual = true;
+      p.setGain(this.gain());
+      // The element plays at full volume. It stays really muted only while
+      // the browser doesn't allow sound yet: unmuting it then would make
+      // Chrome pause a muted autoplay video.
+      const soundAllowed = mediaCtx && mediaCtx.state === "running";
+      this.writeReal(1, this.vMuted && !soundAllowed);
+    }
+
+    writeReal(volume, muted) {
+      const el = this.el;
+      if (volumeDesc.get.call(el) !== volume) {
+        this.selfEvents++;
+        volumeDesc.set.call(el, volume);
+      }
+      if (mutedDesc.get.call(el) !== muted) {
+        this.selfEvents++;
+        mutedDesc.set.call(el, muted);
+      }
+    }
+
+    // The page changed volume/muted (through our property setters).
+    volumeChanged() {
+      this.applyVolume();
+      setTimeout(() => this.el.dispatchEvent(new Event("volumechange")), 0);
+    }
+
+    // A real volumechange event arrived. Ours: hide it from the page (the
+    // values the page sees didn't change). Otherwise (e.g. the user changed
+    // the volume some other way): adopt the new values.
+    onRealVolumeChange(e) {
+      if (this.selfEvents > 0) {
+        this.selfEvents--;
+        e.stopImmediatePropagation();
+        return;
+      }
+      if (!this.virtual) return;
+      this.vVolume = volumeDesc.get.call(this.el);
+      this.vMuted = mutedDesc.get.call(this.el);
+      this.applyVolume();
     }
 
     // The cleaner this element's sound currently goes through.
@@ -379,13 +480,11 @@
         try {
           origDisconnect.call(this.src);
         } catch (e) {}
-        if (mode === "clean") {
-          origConnect.call(this.src, this.pipe.input);
-          if (prev === "bypass" || force) this.pipe.flush();
-        } else {
-          if (this._pipe) this._pipe.flush(); // don't let queued cleaned audio overlap
-          origConnect.call(this.src, destinationOf.call(mediaCtx));
-        }
+        // Allowed: the cleaner passes the sound straight through (it still
+        // goes through the volume stage at the end).
+        origConnect.call(this.src, this.pipe.input);
+        this.pipe.setBypass(mode === "bypass"); // flushes queued audio on change
+        if (mode === "clean" && force) this.pipe.flush();
       } else {
         // The element stays connected to the page's graph; the page's
         // cleaner switches between cleaning and passing through.
@@ -412,7 +511,9 @@
       if (this._pipe) this._pipe.freeze(true); // our own cleaner gets no sound now
       this.route = "page";
       this.pagePipe = pipelineFor(pageCtx);
+      this.pagePipe.owners.add(this);
       this.setMode(this.mode || "clean", true);
+      for (const h of this.pagePipe.owners) h.applyVolume();
       return pageCtx.createMediaStreamSource(msd.stream);
     }
 
@@ -474,11 +575,56 @@
     return origPlay.apply(this, arguments);
   };
 
+  // The page reads and sets the volume it chose; we apply it at the end of
+  // the chain (see Hook.applyVolume). Invalid values throw like the original.
+  Object.defineProperty(MediaEl.prototype, "volume", {
+    configurable: true,
+    enumerable: true,
+    get() {
+      const h = hooked.get(this);
+      return h && h.virtual ? h.vVolume : volumeDesc.get.call(this);
+    },
+    set(v) {
+      const h = hooked.get(this);
+      if (!h || !h.virtual) return volumeDesc.set.call(this, v);
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0 || n > 1) return volumeDesc.set.call(this, v); // throws
+      if (n === h.vVolume) return;
+      h.vVolume = n;
+      h.volumeChanged();
+    },
+  });
+  Object.defineProperty(MediaEl.prototype, "muted", {
+    configurable: true,
+    enumerable: true,
+    get() {
+      const h = hooked.get(this);
+      return h && h.virtual ? h.vMuted : mutedDesc.get.call(this);
+    },
+    set(v) {
+      const h = hooked.get(this);
+      if (!h || !h.virtual) return mutedDesc.set.call(this, v);
+      const m = !!v;
+      if (m === h.vMuted) return;
+      h.vMuted = m;
+      h.volumeChanged();
+    },
+  });
+
+  // Runs before any page listener (capture, registered first).
+  function onVolumeEvent(e) {
+    if (!e.isTrusted) return;
+    const h = hooked.get(e.composedPath()[0]);
+    if (h) h.onRealVolumeChange(e);
+  }
+  window.addEventListener("volumechange", onVolumeEvent, true);
+
   function scan(root) {
     if (root.querySelectorAll) root.querySelectorAll("video,audio").forEach(hook);
   }
 
   function watch(root) {
+    if (root !== document) root.addEventListener("volumechange", onVolumeEvent, true);
     for (const ev of ["loadstart", "play", "playing", "loadedmetadata", "canplay"]) {
       root.addEventListener(ev, (e) => hook(e.target), true);
     }

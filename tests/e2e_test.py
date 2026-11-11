@@ -113,6 +113,50 @@ RESPONSIVENESS_JS = """async () => {
 }"""
 
 
+# Volume and mute must change the sound instantly (not 1 s later, when the
+# audio captured at the old volume has gone through the cleaner), and the
+# page must still see the values it set and get volumechange events.
+VOLUME_JS = """async () => {
+  const v = document.getElementById('v');
+""" + ACTIVE_LOG_JS + """
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const avg = (t0, t1) => {
+    const xs = log.filter((e) => e.t >= t0 && e.t < t1).map((e) => e.out);
+    return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
+  };
+  const peak = (t0, t1) => {
+    const xs = log.filter((e) => e.t >= t0 && e.t < t1).map((e) => e.out);
+    return xs.length ? Math.max(...xs) : 1;
+  };
+  let events = 0;
+  v.addEventListener('volumechange', () => events++);
+  v.src = 'test.webm?volume';
+  await v.play();
+  await sleep(5300);                 // cleaned voice is flowing
+  const t0 = performance.now();
+  v.volume = 0.1;
+  const seenVolume = v.volume;
+  await sleep(500);
+  const t1 = performance.now();
+  v.muted = true;
+  const seenMuted = v.muted;
+  await sleep(500);
+  const t2 = performance.now();
+  v.muted = false;
+  v.volume = 1;
+  await sleep(500);
+  const t3 = performance.now();
+  await sleep(50);
+  return {
+    full: avg(t0 - 600, t0),
+    quiet: avg(t0 + 80, t1),
+    muted: peak(t1 + 80, t2),
+    back: avg(t2 + 80, t3),
+    seenVolume, seenMuted, events,
+  };
+}"""
+
+
 # Another extension (like HaramBlur) blurs the <video> with a CSS filter. The
 # lip-sync canvas must carry that blur, and must also blur frames that were
 # captured up to 1 s *before* the blur was applied (they are shown later).
@@ -250,6 +294,7 @@ def main() -> int:
         status = sw.evaluate("({helper, lastPong})")
         clicks = page.evaluate(RESPONSIVENESS_JS)
         blur = page.evaluate(BLUR_JS)
+        vol = page.evaluate(VOLUME_JS)
         ctx.close()
 
     if not log:
@@ -312,6 +357,17 @@ def main() -> int:
     ok &= clicks["newPictureShown"]
     ok &= clicks["oldPictureGone"]
     ok &= db(clicks["afterSwitch"]) < -60
+    print("volume and mute (should change at once):")
+    print(f"  voice at full volume:        {db(vol['full']):6.1f} dB")
+    print(f"  volume 0.1, right after:     {db(vol['quiet']):6.1f} dB  (about 20 dB lower)")
+    print(f"  muted, right after:          {db(vol['muted']):6.1f} dB  (silence)")
+    print(f"  unmuted, right after:        {db(vol['back']):6.1f} dB  (voice right away)")
+    print(f"  page sees volume {vol['seenVolume']}, muted {vol['seenMuted']}, volumechange events {vol['events']}")
+    ok &= db(vol["full"]) > -40
+    ok &= -26 < db(vol["quiet"]) - db(vol["full"]) < -14
+    ok &= db(vol["muted"]) < -80
+    ok &= db(vol["back"]) > db(vol["full"]) - 6
+    ok &= vol["seenVolume"] == 0.1 and vol["seenMuted"] is True and vol["events"] >= 3
     ok &= "blur" in blur["right_away"] and "blur" in blur["just_after"] and not blur["later"]
     print("PASS" if ok else "FAIL")
     return 0 if ok else 1
