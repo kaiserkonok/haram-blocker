@@ -8,6 +8,7 @@ const DEFAULTS = {
   imageColor: "#000000",
   imageBlur: 40,
   blockedSites: [],
+  neededSites: [],
   blockAdult: true,
 };
 const $ = (id) => document.getElementById(id);
@@ -104,10 +105,13 @@ function blockChoices() {
 }
 
 async function block(site) {
-  const r = await chrome.runtime.sendMessage({ t: "block", site });
+  const r = await chrome.runtime.sendMessage({ t: "block", site, needed: $("blockNeeded").checked });
   $("blockError").hidden = !r.error;
   $("blockError").textContent = r.error || "";
-  if (r.ok) $("blockInput").value = "";
+  if (r.ok) {
+    $("blockInput").value = "";
+    $("blockNeeded").checked = false;
+  }
   render();
 }
 
@@ -131,14 +135,37 @@ function renderBlocker(s) {
     ul.append(li);
   }
   for (const site of s.blockedSites) {
+    const needed = s.neededSites.includes(site);
     const li = document.createElement("li");
     const span = document.createElement("span");
     span.className = "mono";
     span.textContent = site;
+    const name = document.createElement("span");
+    name.className = "name";
+    name.append(span);
+    if (needed) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "needed";
+      name.append(tag);
+    }
+    const btns = document.createElement("span");
+    btns.className = "btns";
+    const n = document.createElement("button");
+    n.className = "ghost";
+    // Not needed any more: stricter, immediate. Marking as needed loosens
+    // the block, so it takes a pause and a typed sentence.
+    n.textContent = needed ? "Not needed" : "Mark needed";
+    n.title = needed ? "Stop allowing one-visit openings" : "I sometimes need this site";
+    n.onclick = needed
+      ? () => chrome.runtime.sendMessage({ t: "unneed", site }).then(render)
+      : () => openUnblock("need-mark:" + site);
     const b = document.createElement("button");
     b.textContent = "Unblock";
     b.onclick = () => openUnblock("site:" + site);
-    li.append(span, b);
+    btns.append(n, b);
+    li.className = "blocked";
+    li.append(name, btns);
     ul.append(li);
   }
 }

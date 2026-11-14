@@ -226,6 +226,19 @@
      "audio": "039053.mp3"
     }
    ]
+  },
+  {
+   "where": "need",
+   "ref": "Al-Alaq 96:14",
+   "ayat": [
+    {
+     "s": 96,
+     "a": 14,
+     "ar": "أَلَمْ يَعْلَم بِأَنَّ ٱللَّهَ يَرَىٰ",
+     "en": "Is he then unaware that Allah seeth?",
+     "audio": "096014.mp3"
+    }
+   ]
   }
  ]
 }

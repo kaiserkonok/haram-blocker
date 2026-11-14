@@ -19,19 +19,21 @@ ARABIC = ("https://tanzil.net/pub/download/index.php?marks=true&sajdah=true&rub=
 ENGLISH = "https://tanzil.net/trans/?transID=en.pickthall&type=txt-2"
 
 SURAH = {4: "An-Nisa", 13: "Ar-Ra'd", 17: "Al-Isra", 24: "An-Nur", 29: "Al-Ankabut", 39: "Az-Zumar",
-         45: "Al-Jathiyah", 79: "An-Nazi'at", 89: "Al-Fajr", 94: "Ash-Sharh"}
+         45: "Al-Jathiyah", 79: "An-Nazi'at", 89: "Al-Fajr", 94: "Ash-Sharh", 96: "Al-Alaq"}
 
 # (surah, first ayah, last ayah, where it is shown)
 #   blocked: on the blocked page, one at a time, changing each visit
 #   men:     on the blocked page too, when the user chose "I am a man"
 #   unblock: while waiting to unblock (desire, the nafs, regret)
 #   mercy:   first thing shown after someone unblocked and came back
+#   need:    opening a "needed" site for one visit (Allah sees)
 PASSAGES = [
     (79, 40, 41, "blocked"), (45, 23, 23, "blocked"), (89, 23, 24, "blocked"), (94, 5, 6, "blocked"),
     (29, 69, 69, "blocked"), (17, 32, 32, "blocked"), (17, 36, 36, "blocked"), (4, 27, 28, "blocked"),
     (13, 28, 28, "blocked"), (24, 30, 30, "men"),
     (45, 23, 23, "unblock"), (79, 40, 41, "unblock"), (89, 23, 24, "unblock"),
     (39, 53, 53, "mercy"),
+    (96, 14, 14, "need"),
 ]
 
 

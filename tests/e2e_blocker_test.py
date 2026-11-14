@@ -20,6 +20,11 @@ Checks:
   * after unblocking, the next blocked page starts with the mercy verse
   * unblocking one adult site leaves the others blocked; turning the adult
     list off and on works
+  * "I sometimes need this site": a 10 s pause and a typed intention open it
+    in that tab only (and tabs it opens); leaving the site or closing the tab
+    blocks it again; the "Still working?" check-in can continue or close;
+    marking a site as needed takes the full pause; a porn site can never be
+    opened this way
 
 Usage: python tests/e2e_blocker_test.py
 """
@@ -39,6 +44,8 @@ EXT = os.path.join(ROOT, "extension")
 EXT_ID = "dlhalfnkadcmncbhilghjipnpjmaaocb"
 BLOCKED = f"chrome-extension://{EXT_ID}/blocker/blocked.html"
 SENTENCE = "I am choosing my desire over what I know is better."
+NEED = "I am opening this site for a real need, and I will not look at anything haram. Allah sees me."
+MARK = "I really need this site, and I will only use it for that need."
 VERSES = json.load(open(os.path.join(EXT, "blocker", "verses.json")))["passages"]
 
 
@@ -265,6 +272,160 @@ def main():
         send({"t": "blockAdult"})
         u = goto("http://xvideos.com/")
         check("adult list back on", u.startswith(BLOCKED), u[:60])
+
+        print("needed sites (one visit, one tab):")
+        r = send({"t": "block", "site": "need-test.com", "needed": True})
+        st = sw.evaluate("chrome.storage.local.get('neededSites')")
+        check("added as needed", "need-test.com" in st["neededSites"], str(r))
+
+        def titles():
+            return sw.evaluate("chrome.tabs.query({}).then((t) => t.map((x) => x.title))")
+
+        def wait_title(t, timeout=4.0):
+            end = time.time() + timeout
+            while time.time() < end:
+                if t in titles():
+                    return True
+                time.sleep(0.05)
+            return False
+
+        def session_rules():
+            return sw.evaluate("chrome.declarativeNetRequest.getSessionRules()")
+
+        def nav(pg, url):
+            try:
+                pg.goto(url)
+            except Exception:
+                pass  # moved to the extension's page
+
+        def open_for_need(pg, url):
+            """Blocked page -> "I need it" -> pause -> intention -> open."""
+            nav(pg, url)
+            pg.wait_for_selector("#need", state="visible")
+            pg.click("#need")
+            pg.wait_for_selector("#unblockVerse .ar")
+            pg.wait_for_selector("#typeStep", state="visible", timeout=20000)
+            pg.fill("#sentence", NEED)
+            pg.click("#confirm")
+
+        goto("http://blocked-test.com/x")
+        page.wait_for_selector("#verse .ar")
+        time.sleep(0.3)
+        check("not-needed site: no 'I need it' option", not page.locator("#need").is_visible())
+        goto("http://xvideos.com/x")
+        page.wait_for_selector("#verse .ar")
+        time.sleep(0.3)
+        check("adult site: no 'I need it' option", not page.locator("#need").is_visible())
+
+        goto("http://need-test.com/page")
+        page.wait_for_selector("#need", state="visible")
+        check("needed site: 'I need it for something' offered", True)
+        page.click("#need")
+        page.wait_for_selector("#unblockVerse .ar")
+        check("shows 'Allah sees' (96:14)", page.locator("#unblockVerse").get_attribute("data-ref").endswith("96:14"),
+              page.locator("#unblockVerse").get_attribute("data-ref"))
+        early = page.evaluate("(m) => chrome.runtime.sendMessage(m)",
+                              {"t": "unblockFinish", "target": "need:need-test.com", "text": NEED})
+        check("asking early is refused", "wait" in early.get("error", "").lower(), str(early))
+        t = time.time()
+        page.wait_for_selector("#typeStep", state="visible", timeout=20000)
+        waited = time.time() - t
+        check("pause is about 10 s", 8.5 < waited < 11.5, f"{waited:.1f}s")
+        page.fill("#sentence", SENTENCE)
+        check("the 'desire' sentence doesn't open it", page.locator("#confirm").is_disabled())
+        page.fill("#sentence", NEED)
+        page.click("#confirm")
+        check("opens the site in this tab", wait_title("site need-test.com/page"), str(titles()))
+        rules = session_rules()
+        check("allowed for this one tab only", len(rules) == 1 and len(rules[0]["condition"]["tabIds"]) == 1, str(rules))
+
+        other = ctx.new_page()
+        nav(other, "http://need-test.com/elsewhere")
+        check("still blocked in other tabs",
+              wait_tab(BLOCKED + "?site=need-test.com#http://need-test.com/elsewhere") is not None, str(tab_urls()))
+        other.close()
+        nav(page, "http://need-test.com/other")
+        nav(page, "http://m.need-test.com/")
+        check("browsing the site in that tab works", wait_title("site m.need-test.com/"), str(titles()))
+        page.evaluate("window.open('http://need-test.com/opened-by-site')")
+        check("a tab the site opens is part of the visit", wait_title("site need-test.com/opened-by-site"),
+              f"{titles()} {sw.evaluate('JSON.stringify(visitsCache)')} "
+              f"{sw.evaluate('chrome.tabs.query({}).then((t) => t.map((x) => [x.id, x.openerTabId, x.url.slice(0, 60)]))')}")
+        for pg in ctx.pages:
+            if pg.url.endswith("/opened-by-site"):
+                pg.close()
+        nav(page, "http://example.com/left")
+        nav(page, "http://need-test.com/again")
+        check("leaving the site ends the visit",
+              wait_tab(BLOCKED + "?site=need-test.com#http://need-test.com/again") is not None, str(tab_urls()))
+        time.sleep(0.5)
+        check("no openings left", session_rules() == [], str(session_rules()))
+
+        p2 = ctx.new_page()
+        open_for_need(p2, "http://need-test.com/visit2")
+        ok2 = wait_title("site need-test.com/visit2")
+        p2.close()
+        time.sleep(0.5)
+        p3 = ctx.new_page()
+        nav(p3, "http://need-test.com/after-close")
+        check("closing the tab ends the visit", ok2 and session_rules() == []
+              and wait_tab(BLOCKED + "?site=need-test.com#http://need-test.com/after-close") is not None,
+              f"{ok2} {session_rules()}")
+
+        print("'Still working?' check-in (shortened to 3 s for the test):")
+        sw.evaluate("chrome.storage.session.set({ testCheckinMs: 3000 })")
+        open_for_need(p3, "http://need-test.com/work")
+        wait_title("site need-test.com/work")
+        go_btn = p3.locator("#haram-blocker-checkin .go")
+        try:
+            go_btn.wait_for(state="visible", timeout=10000)
+            shown = True
+        except Exception:
+            shown = False
+        check("check-in appears", shown)
+        if shown:
+            check("check-in reminds that Allah sees", "96:14" in p3.locator("#haram-blocker-checkin .v").inner_text())
+            go_btn.click()
+            time.sleep(0.5)
+            check("'Still working' keeps the site open", len(session_rules()) == 1 and "site need-test.com/work" in titles())
+            done_btn = p3.locator("#haram-blocker-checkin .close")
+            done_btn.wait_for(state="visible", timeout=10000)
+            done_btn.click()
+            moved = wait_tab(BLOCKED + "?site=need-test.com#http://need-test.com/work") is not None
+            time.sleep(0.3)
+            check("'I'm done' closes it", moved and session_rules() == [], str(tab_urls()))
+        sw.evaluate("chrome.storage.session.remove('testCheckinMs')")
+        p3.close()
+
+        print("marking a site as needed:")
+        send({"t": "block", "site": "mark-test.com"})
+        nav(page, f"{BLOCKED}?unblock=need-mark:mark-test.com")
+        page.wait_for_selector("#unblockVerse .ar")
+        t = time.time()
+        page.wait_for_selector("#typeStep", state="visible", timeout=40000)
+        waited = time.time() - t
+        page.fill("#sentence", MARK)
+        page.click("#confirm")
+        page.wait_for_selector("#done", state="visible")
+        st = sw.evaluate("chrome.storage.local.get('neededSites')")
+        check("takes the full 30 s pause, then marked", waited > 28 and "mark-test.com" in st["neededSites"], f"{waited:.0f}s")
+        send({"t": "unneed", "site": "mark-test.com"})
+        st = sw.evaluate("chrome.storage.local.get('neededSites')")
+        check("'Not needed' is immediate", "mark-test.com" not in st["neededSites"])
+
+        print("a porn site can't be opened as 'needed':")
+        send({"t": "block", "site": "xnxx.com", "needed": True})
+        u = goto("http://xnxx.com/")
+        page.wait_for_selector("#verse .ar")
+        time.sleep(0.3)
+        check("adult block wins, no 'I need it' option",
+              u.startswith(BLOCKED + "?list=adult") and not page.locator("#need").is_visible(), u[:70])
+        # Even asking the background directly from this tab doesn't open it.
+        page.evaluate("(m) => chrome.runtime.sendMessage(m)", {"t": "unblockStart", "target": "need:xnxx.com"})
+        time.sleep(10.5)
+        r = page.evaluate("(m) => chrome.runtime.sendMessage(m)", {"t": "unblockFinish", "target": "need:xnxx.com", "text": NEED})
+        u = goto("http://xnxx.com/again")
+        check("still blocked even with a visit", u.startswith(BLOCKED + "?list=adult"), f"{r} {u[:60]}")
         ctx.close()
 
     print("PASS" if all(results) else f"FAIL ({results.count(False)} failed)")

@@ -5,6 +5,10 @@
 //   blocked.html?list=adult#<original address>         the built-in adult list
 //   blocked.html?unblock=site:example.com             unblock from the menu
 //   blocked.html?unblock=adult-list                    turn the adult list off
+//   blocked.html?unblock=need-mark:example.com        mark a site as "needed"
+//
+// A "needed" site's blocked page also offers "I need it for something":
+// a short pause, a typed intention, then the site opens in this tab only.
 //
 // The wait and the typed sentence are enforced by the background worker;
 // this page only shows them.
@@ -35,7 +39,7 @@
   let label, target;
   if (params.has("unblock")) {
     target = params.get("unblock");
-    label = target === "adult-list" ? "The built-in adult-site list" : target.replace(/^(site|adult):/, "");
+    label = target === "adult-list" ? "The built-in adult-site list" : target.replace(/^(site|adult|need-mark):/, "");
   } else if (params.get("list") === "adult") {
     label = hostOf(original);
     target = "adult:" + label;
@@ -160,13 +164,52 @@
       passage = await pick("blocked", s.imageMode === "male" ? ["men"] : []);
     }
     showVerse($("verse"), passage, true);
+    // Sites the user marked "I sometimes need this site" can be opened for
+    // one visit (never sites from the adult list).
+    if (params.has("site")) {
+      const { neededSites = [] } = await chrome.storage.local.get({ neededSites: [] });
+      $("need").hidden = !neededSites.includes(params.get("site"));
+    }
   }
 
+  // The three ways to loosen a block, and how each is worded.
+  const KINDS = {
+    unblock: {
+      title: "Before you unblock",
+      label: "If you still want to unblock it, type this sentence:",
+      button: "Unblock",
+      verses: "unblock",
+    },
+    need: {
+      title: "Opening for a real need",
+      label: "To open it for this visit, type this intention:",
+      button: "Open it in this tab",
+      verses: "need",
+    },
+    mark: {
+      title: "Before marking it as needed",
+      label: "If this site is really a need for you, type:",
+      button: "Mark as needed",
+      verses: "unblock",
+      doneTitle: "Marked as needed",
+      doneText: "When it's blocked, you can now choose \u201cI need it for something\u201d. Each visit takes the intention again, and opens in one tab only.",
+    },
+  };
+  const kindOf = (t) => (t.startsWith("need:") ? "need" : t.startsWith("need-mark:") ? "mark" : "unblock");
+  let loosening = target; // what the open panel is about
+
   let countdown = null;
-  async function showUnblock() {
+  async function showUnblock(what = target) {
+    loosening = what;
+    const kind = KINDS[kindOf(what)];
     stopRecitation();
     show("unblockPanel");
-    document.title = "Unblock: " + label;
+    $("unblockPanel").classList.toggle("need-mode", kindOf(what) === "need");
+    $("panelTitle").textContent = kind.title;
+    $("sentenceLabel").textContent = kind.label;
+    $("confirm").textContent = kind.button;
+    $("needNote").hidden = kindOf(what) !== "need";
+    document.title = kind.title + ": " + label;
     $("unblockWhat").textContent = label;
     $("typeStep").hidden = true;
     $("waitLine").hidden = false;
@@ -174,8 +217,8 @@
     $("confirm").disabled = true;
     $("error").hidden = true;
 
-    const r = await chrome.runtime.sendMessage({ t: "unblockStart", target });
-    showVerse($("unblockVerse"), await pick("unblock"), true);
+    const r = await chrome.runtime.sendMessage({ t: "unblockStart", target: what });
+    showVerse($("unblockVerse"), await pick(kind.verses), true);
     $("sentenceText").textContent = r.sentence;
     const end = Date.now() + r.waitMs;
     clearInterval(countdown);
@@ -193,7 +236,7 @@
     countdown = setInterval(tick, 250);
   }
 
-  const norm = (x) => x.toLowerCase().replace(/[’‘]/g, "'").replace(/[.\s]+/g, " ").trim();
+  const norm = (x) => x.toLowerCase().replace(/[’‘]/g, "'").replace(/[.,\s]+/g, " ").trim();
   $("sentence").addEventListener("input", () => {
     $("confirm").disabled = norm($("sentence").value) !== norm($("sentenceText").textContent);
   });
@@ -202,7 +245,7 @@
 
   $("confirm").onclick = async () => {
     $("confirm").disabled = true;
-    const r = await chrome.runtime.sendMessage({ t: "unblockFinish", target, text: $("sentence").value });
+    const r = await chrome.runtime.sendMessage({ t: "unblockFinish", target: loosening, text: $("sentence").value });
     if (!r || !r.ok) {
       $("error").textContent = (r && r.error) || "Couldn't unblock.";
       $("error").hidden = false;
@@ -210,11 +253,14 @@
       return;
     }
     stopRecitation();
-    if (original) {
+    if (original && kindOf(loosening) !== "mark") {
       location.replace(original);
     } else {
+      const kind = KINDS[kindOf(loosening)];
       show("done");
       $("doneWhat").textContent = label;
+      if (kind.doneTitle) $("doneTitle").textContent = kind.doneTitle;
+      if (kind.doneText) $("doneText").textContent = kind.doneText;
     }
   };
 
@@ -224,7 +270,8 @@
     else showBlocked();
   };
 
-  $("unblock").onclick = showUnblock;
+  $("unblock").onclick = () => showUnblock(target);
+  $("need").onclick = () => showUnblock("need:" + params.get("site"));
 
   // Go back to where you were. For a blocked part of a site (e.g. Shorts),
   // the previous page may be that same part, so go to the site's home.

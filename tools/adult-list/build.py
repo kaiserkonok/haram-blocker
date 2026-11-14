@@ -123,7 +123,10 @@ def main():
     for i in range(0, len(final), CHUNK):
         rules.append({
             "id": FIRST_ID + i // CHUNK,
-            "priority": 1,
+            # Above a "needed" one-visit opening (4) and the user's own blocks
+            # (3): a porn site can't be opened that way. Below the user's
+            # deliberate unblock of one listed site (6).
+            "priority": 5,
             "action": {"type": "redirect", "redirect": {
                 "regexSubstitution": f"chrome-extension://{EXT_ID}/blocker/blocked.html?list=adult#\\0"}},
             "condition": {

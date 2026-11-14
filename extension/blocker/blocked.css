@@ -124,7 +124,7 @@ main {
 .reminder p { margin: 0 0 14px; }
 .reminder { margin-bottom: 32px; }
 
-.actions { display: flex; gap: 12px; margin: 8px 0 20px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 20px; }
 button { font: inherit; }
 .primary {
   background: var(--accent);
@@ -139,6 +139,18 @@ button { font: inherit; }
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+.secondary {
+  background: none;
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 22px;
+  cursor: pointer;
+}
+.secondary:hover { border-color: var(--accent); }
+.secondary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.small { font-size: 13px; margin-top: 10px; }
+.need-mode .danger { color: var(--accent); }
 .link {
   background: none;
   border: 0;

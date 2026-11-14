@@ -59,6 +59,7 @@
   <section class="card" id="blocker">
     <div class="label">Blocked sites</div>
     <label class="row"><input type="checkbox" id="blockAdult"> Block adult sites <span class="muted" id="adultCount"></span></label>
+    <label class="row"><input type="checkbox" id="blockNeeded"> I sometimes need this site (work, study, clients)</label>
     <div class="row wrap" id="blockHere"></div>
     <form class="row" id="blockForm">
       <input id="blockInput" type="text" placeholder="example.com or youtube.com/shorts" autocomplete="off" spellcheck="false">
@@ -66,7 +67,7 @@
     </form>
     <div class="error" id="blockError" hidden></div>
     <ul id="blockedList"></ul>
-    <div class="muted">Unblocking takes a short pause and a typed sentence.</div>
+    <div class="muted">Unblocking takes a short pause and a typed sentence. A site marked "needed" can be opened for one visit, in one tab, after typing an intention.</div>
   </section>
 
   <section class="card">

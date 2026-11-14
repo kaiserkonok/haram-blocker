@@ -34,13 +34,15 @@
 
       <div class="actions">
         <button id="back" class="primary">Go back</button>
+        <button id="need" class="secondary" hidden>I need it for something</button>
       </div>
       <button id="unblock" class="link">Unblock this site</button>
     </section>
 
-    <!-- 2. Unblocking: a pause, a verse, a typed sentence -->
+    <!-- 2. Loosening (unblock / open for a need / mark as needed):
+         a pause, a verse, a typed sentence -->
     <section id="unblockPanel" hidden>
-      <p class="eyebrow">Before you unblock</p>
+      <p class="eyebrow" id="panelTitle">Before you unblock</p>
       <p class="site" id="unblockWhat"></p>
 
       <figure class="verse" id="unblockVerse"></figure>
@@ -48,11 +50,12 @@
       <p class="wait" id="waitLine">Stay with these words for a moment. <span class="count" id="count">30</span></p>
 
       <div id="typeStep" hidden>
-        <label for="sentence">If you still want to unblock it, type this sentence:</label>
+        <label for="sentence" id="sentenceLabel">If you still want to unblock it, type this sentence:</label>
         <p class="sentence" id="sentenceText"></p>
         <input id="sentence" type="text" autocomplete="off" spellcheck="false">
         <p class="error" id="error" hidden></p>
         <button id="confirm" class="danger" disabled>Unblock</button>
+        <p class="muted small" id="needNote" hidden>It opens in this tab only. Close the tab or leave the site, and it's blocked again.</p>
       </div>
 
       <div class="actions">
@@ -62,9 +65,9 @@
 
     <!-- 3. Done (unblocking started from the menu) -->
     <section id="done" hidden>
-      <p class="eyebrow">Unblocked</p>
+      <p class="eyebrow" id="doneTitle">Unblocked</p>
       <p class="site" id="doneWhat"></p>
-      <p class="muted">You can block it again any time from the Haram Blocker menu.</p>
+      <p class="muted" id="doneText">You can block it again any time from the Haram Blocker menu.</p>
       <div class="actions"><button id="close" class="primary">Close</button></div>
     </section>
 

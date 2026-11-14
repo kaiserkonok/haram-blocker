@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Haram Blocker",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Keeps haram out of your browser: removes music from videos live (voices stay), hides images of the opposite gender, and blocks sites. Runs the AI on your own GPU.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAowdiiU8mbp1V6A8/iFRDkDtbs2i2KY0l+Owbk1ape8nL1h6vVc0mhoGcWA7vlfDjJQKKyKCqC1sEOtfq2Cqs9/CUYCzzZ0kmpg9+Fg7X1SCMWLtgcoUuivfoh01FbS6xjK6IVuu5fpbvy9W070eQY0RWrgwAmscNWoUXvIP+FHqZNxGrhm10tfiMXvXOptBXcp09zfASzEAKl5FVE8XqPAN9TWpHIdCmECvMPKSNnGzf+dQ1VDWCZrrlGMpnU/QsRhpkN7cdbWCAFU8GsO6KWenQWkdR6y055VsbeFvKoadoWixR7rqvse7A9icvk90rwHN/KgT0eamYaWOI6eH39QIDAQAB",
   "permissions": [
@@ -10,7 +10,9 @@
     "tabs",
     "scripting",
     "offscreen",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "alarms",
+    "webNavigation"
   ],
   "host_permissions": [
     "<all_urls>"
