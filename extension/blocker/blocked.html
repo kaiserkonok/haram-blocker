@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blocked</title>
+  <link rel="icon" href="../icons/icon32.png">
+  <link rel="stylesheet" href="blocked.css">
+</head>
+<body>
+  <!-- Shown inside a frame on another site: just a quiet notice. -->
+  <div id="frameNotice" hidden>
+    <img src="../icons/icon48.png" alt="" width="24" height="24">
+    <span>Blocked by Haram Blocker</span>
+  </div>
+
+  <main id="page" hidden>
+    <header class="top">Haram Blocker</header>
+
+    <!-- 1. The blocked page -->
+    <section id="blocked" hidden>
+      <p class="eyebrow">This site is blocked</p>
+      <p class="site" id="site"></p>
+      <p class="mercy" id="mercy" hidden>You came back. That is what matters. The door to Allah's mercy is still open.</p>
+
+      <figure class="verse" id="verse"></figure>
+
+      <div class="reminder">
+        <p>This feels small right now. It isn't.</p>
+        <p>Every time you hold yourself back, it's hard for a moment, and then it becomes a brick in the person you're becoming. The days you think don't matter are the ones your life is built from.</p>
+        <p>If you give in every day, one day you'll look back and realize those small days were everything. If you had been careful then, your life would not be like this. Following the nafs only leaves regret.</p>
+        <p><strong>Turn back now. The difficulty passes. What you gain doesn't.</strong></p>
+      </div>
+
+      <div class="actions">
+        <button id="back" class="primary">Go back</button>
+      </div>
+      <button id="unblock" class="link">Unblock this site</button>
+    </section>
+
+    <!-- 2. Unblocking: a pause, a verse, a typed sentence -->
+    <section id="unblockPanel" hidden>
+      <p class="eyebrow">Before you unblock</p>
+      <p class="site" id="unblockWhat"></p>
+
+      <figure class="verse" id="unblockVerse"></figure>
+
+      <p class="wait" id="waitLine">Stay with these words for a moment. <span class="count" id="count">30</span></p>
+
+      <div id="typeStep" hidden>
+        <label for="sentence">If you still want to unblock it, type this sentence:</label>
+        <p class="sentence" id="sentenceText"></p>
+        <input id="sentence" type="text" autocomplete="off" spellcheck="false">
+        <p class="error" id="error" hidden></p>
+        <button id="confirm" class="danger" disabled>Unblock</button>
+      </div>
+
+      <div class="actions">
+        <button id="keep" class="primary">Keep it blocked</button>
+      </div>
+    </section>
+
+    <!-- 3. Done (unblocking started from the menu) -->
+    <section id="done" hidden>
+      <p class="eyebrow">Unblocked</p>
+      <p class="site" id="doneWhat"></p>
+      <p class="muted">You can block it again any time from the Haram Blocker menu.</p>
+      <div class="actions"><button id="close" class="primary">Close</button></div>
+    </section>
+
+    <footer>
+      Quran text: <a href="https://tanzil.net" target="_blank" rel="noopener">Tanzil Project</a> ·
+      English: Pickthall ·
+      Recitation: Mishary Rashid Alafasy (<a href="https://everyayah.com" target="_blank" rel="noopener">EveryAyah</a>)
+    </footer>
+  </main>
+
+  <script src="blocked.js"></script>
+</body>
+</html>

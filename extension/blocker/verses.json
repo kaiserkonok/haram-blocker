@@ -1,0 +1,231 @@
+{
+ "source": "Quran text and translation from the Tanzil Project, https://tanzil.net (verbatim, unchanged)",
+ "arabic_notice": "PLEASE DO NOT REMOVE OR CHANGE THIS COPYRIGHT BLOCK\n====================================================================\n\nTanzil Quran Text (Uthmani, Version 1.1)\nCopyright (C) 2007-2026 Tanzil Project\nLicense: Creative Commons Attribution 3.0\n\nThis copy of the Quran text is carefully produced, highly\nverified and continuously monitored by a group of specialists\nat Tanzil Project.\n\nTERMS OF USE:\n\n- Permission is granted to copy and distribute verbatim copies\nof this text, but CHANGING IT IS NOT ALLOWED.\n\n- This Quran text can be used in any website or application,\nprovided that its source (Tanzil Project) is clearly indicated,\nand a link is made to tanzil.net to enable users to keep\ntrack of changes.\n\n- This copyright notice shall be included in all verbatim copies\nof the text, and shall be reproduced appropriately in all files\nderived from or containing substantial portion of this text.\n\nPlease check updates at: http://tanzil.net/updates/\n\n====================================================================",
+ "translation_notice": "--------------------------------------------------------------------\n\nQuran Translation\nName: Pickthall\nTranslator: Mohammed Marmaduke William Pickthall\nLanguage: English\nID: en.pickthall\nLast Update: September 4, 2010\nSource: Tanzil.net\n\n--------------------------------------------------------------------",
+ "passages": [
+  {
+   "where": "blocked",
+   "ref": "An-Nazi'at 79:40-41",
+   "ayat": [
+    {
+     "s": 79,
+     "a": 40,
+     "ar": "وَأَمَّا مَنْ خَافَ مَقَامَ رَبِّهِۦ وَنَهَى ٱلنَّفْسَ عَنِ ٱلْهَوَىٰ",
+     "en": "But as for him who feared to stand before his Lord and restrained his soul from lust,",
+     "audio": "079040.mp3"
+    },
+    {
+     "s": 79,
+     "a": 41,
+     "ar": "فَإِنَّ ٱلْجَنَّةَ هِىَ ٱلْمَأْوَىٰ",
+     "en": "Lo! the Garden will be his home.",
+     "audio": "079041.mp3"
+    }
+   ]
+  },
+  {
+   "where": "blocked",
+   "ref": "Al-Jathiyah 45:23",
+   "ayat": [
+    {
+     "s": 45,
+     "a": 23,
+     "ar": "أَفَرَءَيْتَ مَنِ ٱتَّخَذَ إِلَـٰهَهُۥ هَوَىٰهُ وَأَضَلَّهُ ٱللَّهُ عَلَىٰ عِلْمٍ وَخَتَمَ عَلَىٰ سَمْعِهِۦ وَقَلْبِهِۦ وَجَعَلَ عَلَىٰ بَصَرِهِۦ غِشَـٰوَةً فَمَن يَهْدِيهِ مِنۢ بَعْدِ ٱللَّهِ ۚ أَفَلَا تَذَكَّرُونَ",
+     "en": "Hast thou seen him who maketh his desire his god, and Allah sendeth him astray purposely, and sealeth up his hearing and his heart, and setteth on his sight a covering? Then who will lead him after Allah (hath condemned him)? Will ye not then heed?",
+     "audio": "045023.mp3"
+    }
+   ]
+  },
+  {
+   "where": "blocked",
+   "ref": "Al-Fajr 89:23-24",
+   "ayat": [
+    {
+     "s": 89,
+     "a": 23,
+     "ar": "وَجِا۟ىٓءَ يَوْمَئِذٍۭ بِجَهَنَّمَ ۚ يَوْمَئِذٍ يَتَذَكَّرُ ٱلْإِنسَـٰنُ وَأَنَّىٰ لَهُ ٱلذِّكْرَىٰ",
+     "en": "And hell is brought near that day; on that day man will remember, but how will the remembrance (then avail him)?",
+     "audio": "089023.mp3"
+    },
+    {
+     "s": 89,
+     "a": 24,
+     "ar": "يَقُولُ يَـٰلَيْتَنِى قَدَّمْتُ لِحَيَاتِى",
+     "en": "He will say: Ah, would that I had sent before me (some provision) for my life!",
+     "audio": "089024.mp3"
+    }
+   ]
+  },
+  {
+   "where": "blocked",
+   "ref": "Ash-Sharh 94:5-6",
+   "ayat": [
+    {
+     "s": 94,
+     "a": 5,
+     "ar": "فَإِنَّ مَعَ ٱلْعُسْرِ يُسْرًا",
+     "en": "But lo! with hardship goeth ease,",
+     "audio": "094005.mp3"
+    },
+    {
+     "s": 94,
+     "a": 6,
+     "ar": "إِنَّ مَعَ ٱلْعُسْرِ يُسْرًا",
+     "en": "Lo! with hardship goeth ease;",
+     "audio": "094006.mp3"
+    }
+   ]
+  },
+  {
+   "where": "blocked",
+   "ref": "Al-Ankabut 29:69",
+   "ayat": [
+    {
+     "s": 29,
+     "a": 69,
+     "ar": "وَٱلَّذِينَ جَـٰهَدُوا۟ فِينَا لَنَهْدِيَنَّهُمْ سُبُلَنَا ۚ وَإِنَّ ٱللَّهَ لَمَعَ ٱلْمُحْسِنِينَ",
+     "en": "As for those who strive in Us, We surely guide them to Our paths, and lo! Allah is with the good.",
+     "audio": "029069.mp3"
+    }
+   ]
+  },
+  {
+   "where": "blocked",
+   "ref": "Al-Isra 17:32",
+   "ayat": [
+    {
+     "s": 17,
+     "a": 32,
+     "ar": "وَلَا تَقْرَبُوا۟ ٱلزِّنَىٰٓ ۖ إِنَّهُۥ كَانَ فَـٰحِشَةً وَسَآءَ سَبِيلًا",
+     "en": "And come not near unto adultery. Lo! it is an abomination and an evil way.",
+     "audio": "017032.mp3"
+    }
+   ]
+  },
+  {
+   "where": "blocked",
+   "ref": "Al-Isra 17:36",
+   "ayat": [
+    {
+     "s": 17,
+     "a": 36,
+     "ar": "وَلَا تَقْفُ مَا لَيْسَ لَكَ بِهِۦ عِلْمٌ ۚ إِنَّ ٱلسَّمْعَ وَٱلْبَصَرَ وَٱلْفُؤَادَ كُلُّ أُو۟لَـٰٓئِكَ كَانَ عَنْهُ مَسْـُٔولًا",
+     "en": "(O man), follow not that whereof thou hast no knowledge. Lo! the hearing and the sight and the heart - of each of these it will be asked.",
+     "audio": "017036.mp3"
+    }
+   ]
+  },
+  {
+   "where": "blocked",
+   "ref": "An-Nisa 4:27-28",
+   "ayat": [
+    {
+     "s": 4,
+     "a": 27,
+     "ar": "وَٱللَّهُ يُرِيدُ أَن يَتُوبَ عَلَيْكُمْ وَيُرِيدُ ٱلَّذِينَ يَتَّبِعُونَ ٱلشَّهَوَٰتِ أَن تَمِيلُوا۟ مَيْلًا عَظِيمًا",
+     "en": "And Allah would turn to you in mercy; but those who follow vain desires would have you go tremendously astray.",
+     "audio": "004027.mp3"
+    },
+    {
+     "s": 4,
+     "a": 28,
+     "ar": "يُرِيدُ ٱللَّهُ أَن يُخَفِّفَ عَنكُمْ ۚ وَخُلِقَ ٱلْإِنسَـٰنُ ضَعِيفًا",
+     "en": "Allah would make the burden light for you, for man was created weak.",
+     "audio": "004028.mp3"
+    }
+   ]
+  },
+  {
+   "where": "blocked",
+   "ref": "Ar-Ra'd 13:28",
+   "ayat": [
+    {
+     "s": 13,
+     "a": 28,
+     "ar": "ٱلَّذِينَ ءَامَنُوا۟ وَتَطْمَئِنُّ قُلُوبُهُم بِذِكْرِ ٱللَّهِ ۗ أَلَا بِذِكْرِ ٱللَّهِ تَطْمَئِنُّ ٱلْقُلُوبُ",
+     "en": "Who have believed and whose hearts have rest in the remembrance of Allah. Verily in the remembrance of Allah do hearts find rest!",
+     "audio": "013028.mp3"
+    }
+   ]
+  },
+  {
+   "where": "men",
+   "ref": "An-Nur 24:30",
+   "ayat": [
+    {
+     "s": 24,
+     "a": 30,
+     "ar": "قُل لِّلْمُؤْمِنِينَ يَغُضُّوا۟ مِنْ أَبْصَـٰرِهِمْ وَيَحْفَظُوا۟ فُرُوجَهُمْ ۚ ذَٰلِكَ أَزْكَىٰ لَهُمْ ۗ إِنَّ ٱللَّهَ خَبِيرٌۢ بِمَا يَصْنَعُونَ",
+     "en": "Tell the believing men to lower their gaze and be modest. That is purer for them. Lo! Allah is aware of what they do.",
+     "audio": "024030.mp3"
+    }
+   ]
+  },
+  {
+   "where": "unblock",
+   "ref": "Al-Jathiyah 45:23",
+   "ayat": [
+    {
+     "s": 45,
+     "a": 23,
+     "ar": "أَفَرَءَيْتَ مَنِ ٱتَّخَذَ إِلَـٰهَهُۥ هَوَىٰهُ وَأَضَلَّهُ ٱللَّهُ عَلَىٰ عِلْمٍ وَخَتَمَ عَلَىٰ سَمْعِهِۦ وَقَلْبِهِۦ وَجَعَلَ عَلَىٰ بَصَرِهِۦ غِشَـٰوَةً فَمَن يَهْدِيهِ مِنۢ بَعْدِ ٱللَّهِ ۚ أَفَلَا تَذَكَّرُونَ",
+     "en": "Hast thou seen him who maketh his desire his god, and Allah sendeth him astray purposely, and sealeth up his hearing and his heart, and setteth on his sight a covering? Then who will lead him after Allah (hath condemned him)? Will ye not then heed?",
+     "audio": "045023.mp3"
+    }
+   ]
+  },
+  {
+   "where": "unblock",
+   "ref": "An-Nazi'at 79:40-41",
+   "ayat": [
+    {
+     "s": 79,
+     "a": 40,
+     "ar": "وَأَمَّا مَنْ خَافَ مَقَامَ رَبِّهِۦ وَنَهَى ٱلنَّفْسَ عَنِ ٱلْهَوَىٰ",
+     "en": "But as for him who feared to stand before his Lord and restrained his soul from lust,",
+     "audio": "079040.mp3"
+    },
+    {
+     "s": 79,
+     "a": 41,
+     "ar": "فَإِنَّ ٱلْجَنَّةَ هِىَ ٱلْمَأْوَىٰ",
+     "en": "Lo! the Garden will be his home.",
+     "audio": "079041.mp3"
+    }
+   ]
+  },
+  {
+   "where": "unblock",
+   "ref": "Al-Fajr 89:23-24",
+   "ayat": [
+    {
+     "s": 89,
+     "a": 23,
+     "ar": "وَجِا۟ىٓءَ يَوْمَئِذٍۭ بِجَهَنَّمَ ۚ يَوْمَئِذٍ يَتَذَكَّرُ ٱلْإِنسَـٰنُ وَأَنَّىٰ لَهُ ٱلذِّكْرَىٰ",
+     "en": "And hell is brought near that day; on that day man will remember, but how will the remembrance (then avail him)?",
+     "audio": "089023.mp3"
+    },
+    {
+     "s": 89,
+     "a": 24,
+     "ar": "يَقُولُ يَـٰلَيْتَنِى قَدَّمْتُ لِحَيَاتِى",
+     "en": "He will say: Ah, would that I had sent before me (some provision) for my life!",
+     "audio": "089024.mp3"
+    }
+   ]
+  },
+  {
+   "where": "mercy",
+   "ref": "Az-Zumar 39:53",
+   "ayat": [
+    {
+     "s": 39,
+     "a": 53,
+     "ar": "۞ قُلْ يَـٰعِبَادِىَ ٱلَّذِينَ أَسْرَفُوا۟ عَلَىٰٓ أَنفُسِهِمْ لَا تَقْنَطُوا۟ مِن رَّحْمَةِ ٱللَّهِ ۚ إِنَّ ٱللَّهَ يَغْفِرُ ٱلذُّنُوبَ جَمِيعًا ۚ إِنَّهُۥ هُوَ ٱلْغَفُورُ ٱلرَّحِيمُ",
+     "en": "Say: O My slaves who have been prodigal to their own hurt! Despair not of the mercy of Allah, Who forgiveth all sins. Lo! He is the Forgiving, the Merciful.",
+     "audio": "039053.mp3"
+    }
+   ]
+  }
+ ]
+}

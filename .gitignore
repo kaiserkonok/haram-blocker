@@ -3,3 +3,5 @@ helper/.venv
 __pycache__/
 *.pyc
 test-output/
+extension/blocker/audio/
+extension/_metadata/

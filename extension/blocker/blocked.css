@@ -1,0 +1,215 @@
+@font-face {
+  font-family: "Amiri Quran";
+  src: url("fonts/AmiriQuran-Regular.ttf") format("truetype");
+  font-display: block;
+}
+
+:root {
+  --bg: #f7f5ef;
+  --fg: #1d2422;
+  --muted: #5d6764;
+  --line: #dcd8cc;
+  --card: #fffdf8;
+  --accent: #0f766e;
+  --accent-fg: #ffffff;
+  --danger: #b42318;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1513;
+    --fg: #e9eeec;
+    --muted: #9aa7a3;
+    --line: #26322f;
+    --card: #131c1a;
+    --accent: #2dd4bf;
+    --accent-fg: #062621;
+    --danger: #f97066;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 32px 20px 40px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 48px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.site {
+  margin: 4px 0 28px;
+  font-size: 22px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mercy {
+  margin: -12px 0 24px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.verse {
+  margin: 0 0 32px;
+  padding: 28px 28px 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.verse .ar {
+  font-family: "Amiri Quran", "Noto Naskh Arabic", serif;
+  font-size: 30px;
+  line-height: 2.1;
+  text-align: right;
+  margin: 0 0 18px;
+}
+.verse .ar .num {
+  font-size: 0.7em;
+  color: var(--muted);
+  margin: 0 0.3em;
+}
+.verse .en {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+.verse figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.play {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.play:hover { border-color: var(--accent); }
+.play.nudge { border-color: var(--accent); color: var(--accent); }
+
+.reminder p { margin: 0 0 14px; }
+.reminder { margin-bottom: 32px; }
+
+.actions { display: flex; gap: 12px; margin: 8px 0 20px; }
+button { font: inherit; }
+.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 28px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary:focus-visible, .danger:focus-visible, .link:focus-visible, .play:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.danger {
+  background: none;
+  color: var(--danger);
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  padding: 8px 18px;
+  cursor: pointer;
+}
+.danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.wait { color: var(--muted); }
+.count {
+  display: inline-block;
+  min-width: 2.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--fg);
+}
+#typeStep label { display: block; color: var(--muted); }
+.sentence {
+  font-weight: 600;
+  margin: 6px 0 10px;
+}
+#sentence {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--fg);
+  margin-bottom: 10px;
+}
+.error { color: var(--danger); margin: 0 0 10px; font-size: 14px; }
+.muted { color: var(--muted); }
+
+footer {
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+footer a { color: inherit; }
+
+/* Inside a frame on another site */
+#frameNotice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100vh;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 8px;
+  text-align: center;
+}
+#frameNotice[hidden] { display: none; }
+
+@media (max-width: 520px) {
+  .verse { padding: 20px 16px 14px; }
+  .verse .ar { font-size: 25px; }
+  .verse .en { font-size: 16px; }
+}

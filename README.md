@@ -8,6 +8,7 @@
   <b>Keep haram out of your browser, live.</b><br>
   Music is removed from every video before you hear a single note.<br>
   Pictures of the opposite gender are covered before you see them.<br>
+  Porn sites, and any site you choose, never open.<br>
   All on your own GPU. Nothing leaves your computer.
 </p>
 
@@ -25,12 +26,12 @@ Most blockers react after the fact. The music starts, the extension notices, and
 
 Haram Blocker works the other way round: **check first, show second.** Nothing reaches your eyes or ears until an AI model on your graphics card has cleared it.
 
-| | 🔇 Music | 🖼️ Images |
-|---|---|---|
-| **What it does** | Removes instruments and beats from any video, keeps the voices | Covers pictures that show the gender you choose to hide ("I am a man" → women are covered, and the other way round) |
-| **Timing** | Voice plays ~1 s after a video starts; pause, play and scroll stay instant | Covered from the first frame, shown a moment later if clear |
-| **If anything fails** | Silence, never the original | Stays covered, never shown |
-| **Measured** | Music ~65 dB quieter (silent) | Strict: 0.17% of photos with a woman shown, on a quiz the model never trained on |
+| | 🔇 Music | 🖼️ Images | 🚫 Sites |
+|---|---|---|---|
+| **What it does** | Removes instruments and beats from any video, keeps the voices | Covers pictures that show the gender you choose to hide ("I am a man" → women are covered, and the other way round) | Blocks ~950,000 porn sites out of the box, plus any site (or part of a site) you add |
+| **Timing** | Voice plays ~1 s after a video starts; pause, play and scroll stay instant | Covered from the first frame, shown a moment later if clear | Stopped before a single byte of the site loads |
+| **If anything fails** | Silence, never the original | Stays covered, never shown | Chrome itself does the blocking |
+| **Instead you get** | The voice | A solid color or blur | A verse of the Quran, recited, and a reminder |
 
 ## 🔇 Music removal
 
@@ -63,11 +64,22 @@ Pick **"I am a man"** or **"I am a woman"** in the menu. Every picture on every 
 - **Your choice of cover.** Solid black (default), any color, or blur. Two strictness levels: **strict** (default) and **balanced**.
 - **Trained and tested properly.** The classifiers were trained on audited public data and measured on a separate quiz set they never saw ([details](helper/training/README.md)).
 
+## 🚫 Site blocker
+
+Porn sites are blocked from the moment you install. You can add any other site, or just part of one (`youtube.com/shorts` blocks Shorts but keeps the rest of YouTube).
+
+- **Nothing loads.** Chrome stops the site before any of it is downloaded, including when it's embedded inside another site.
+- **A reminder instead.** The blocked page shows a verse of the Quran in Arabic and English, recited by Mishary Rashid Alafasy, and a short reminder: the small days you hold back are the bricks your life is built from. The verse changes each time.
+- **Unblocking takes a moment of honesty.** A 30-second pause with a verse about the nafs, then you type *"I am choosing my desire over what I know is better."* Pasting doesn't work. The same applies to turning off the built-in porn list.
+- **Mercy after a slip.** If you unblocked something, the next blocked page opens with *"Despair not of the mercy of Allah"* (Az-Zumar 39:53), not with blame.
+- **Catches in-page jumps.** Sites like YouTube switch to Shorts without loading a new page; that is caught too.
+- **A list that was checked.** ~950,000 sites from two public lists, with entries that aren't porn removed: shared hosting names that would block thousands of unrelated sites, and newspapers, shops, search engines and the like found by checking the 30,000 most-visited sites ([details](tools/adult-list)).
+
 ## Also
 
 - **Allowed list.** Sites and YouTube channels you trust (Quran recitation, for example) play untouched, with no delay. Ads on allowed channels are still cleaned.
 - **Private.** Everything runs on your machine. No servers, no accounts, no analytics, and nothing leaves your computer.
-- **Idle means idle.** When nothing is playing and no new pictures appear, the GPU does nothing.
+- **Idle means idle.** When nothing is playing and no new pictures appear, the GPU does nothing. The site blocker needs no GPU at all.
 
 ## Performance
 
@@ -101,9 +113,9 @@ Then load the extension:
 2. Turn on **Developer mode** (top right)
 3. Click **Load unpacked** and pick the `extension` folder
 
-That's it. Chrome starts the helper automatically, and it's ready about 5 seconds after Chrome opens. Click the extension icon to see its status, turn on image hiding ("I am a man" / "I am a woman") and manage your allowed list.
+That's it. Chrome starts the helper automatically, and it's ready about 5 seconds after Chrome opens. Click the extension icon to see its status, turn on image hiding ("I am a man" / "I am a woman"), block sites and manage your allowed list.
 
-> If you use another music-blocking or image-blurring extension, turn it off. Two extensions doing the same job interfere with each other and use your GPU twice.
+> If you use another music-blocking, image-blurring or site-blocking extension, turn it off. Two extensions doing the same job interfere with each other and use your GPU twice.
 
 ## How it works
 
@@ -149,8 +161,10 @@ extension/
   src/images.js      sends images to be checked, shows the clear ones
   src/images.css     covers every image until it is checked
   src/bridge.js      connects the page to the extension
-  src/background.js  keeps the GPU helper running, routes audio
-  popup/             status and allowed list
+  src/background.js  keeps the GPU helper running, routes audio, site blocking rules
+  blocker/           the blocked page: verse, recitation, reminder, unblocking
+  rules/adult.json   built-in porn-site list (generated)
+  popup/             status, image hiding, blocked and allowed sites
 helper/
   host.py            native messaging host, streaming separation on CUDA
   vision.py          image check: finder + judge
@@ -159,6 +173,10 @@ helper/
 tests/
   e2e_test.py        full browser test: music removal, lip sync, controls
   e2e_images_test.py full browser test: images covered from the first frame
+  e2e_blocker_test.py full browser test: site blocking, unblocking, verses
+tools/
+  adult-list/        builds rules/adult.json from public lists, with reviewed exclusions
+  quran/             builds the verse file (Tanzil) and downloads the recitation
 install.sh
 ```
 </details>
@@ -195,6 +213,8 @@ Because most videos with background music are worth watching: lectures, vlogs, n
 - Videos from servers that block cross-origin access (some TikTok CDNs) can't be read by Web Audio, so they play silent rather than unfiltered.
 - Image hiding covers `<img>`, SVG images and backgrounds set in an element's own style. Backgrounds set from a site's stylesheet, video posters and images inside shadow DOM are not covered yet. Videos themselves are not checked for people yet.
 - The image check can miss very small people in crowds, and some drawings and statues.
+- No list contains every porn site; new ones appear daily. Image hiding still covers the pictures on sites the list misses.
+- Chrome doesn't let an extension stop you from switching it off on the `chrome://extensions` page.
 - If a site puts the bare `<video>` element into fullscreen, the lip-sync canvas can't cover it. The audio is still cleaned, but the picture may run 1 s ahead.
 
 ## Roadmap
@@ -220,6 +240,11 @@ helper/.venv/bin/python helper/test_vision.py eval.json photos/
 # full browser tests (need Playwright and its Chromium)
 python tests/e2e_test.py music.mp3 speech.wav
 python tests/e2e_images_test.py eval.json photos/
+python tests/e2e_blocker_test.py
+
+# rebuild the built-in porn-site list / the verse file
+python tools/adult-list/build.py
+python tools/quran/build_verses.py && tools/quran/fetch_audio.sh
 ```
 
 The tests mix a speech recording over music, so the perfect answer is known. They check that the music-only part comes out silent, the voice comes through, the first second is silent, there are no gaps, and that pause, resume and video switching are instant.
@@ -230,7 +255,7 @@ Issues and pull requests are welcome. If music ever leaks through, or a picture 
 
 ## Credits
 
-Source separation by [Demucs](https://github.com/adefossez/demucs) (Alexandre Défossez, Meta AI), MIT license. People detection by [torchvision](https://github.com/pytorch/vision) Faster R-CNN, BSD license. Image understanding by [CLIP](https://github.com/openai/CLIP) (OpenAI) via [OpenCLIP](https://github.com/mlfoundations/open_clip), MIT license. Image accuracy measured on [COCO](https://cocodataset.org) photos.
+Source separation by [Demucs](https://github.com/adefossez/demucs) (Alexandre Défossez, Meta AI), MIT license. People detection by [torchvision](https://github.com/pytorch/vision) Faster R-CNN, BSD license. Image understanding by [CLIP](https://github.com/openai/CLIP) (OpenAI) via [OpenCLIP](https://github.com/mlfoundations/open_clip), MIT license. Image accuracy measured on [COCO](https://cocodataset.org) photos. Quran text and Pickthall's translation from the [Tanzil Project](https://tanzil.net), used verbatim. Recitation by Mishary Rashid Alafasy via [EveryAyah](https://everyayah.com), downloaded at install. Arabic font [Amiri Quran](https://github.com/aliftype/amiri) (OFL). Porn-site lists by the [Block List Project](https://github.com/blocklistproject/Lists) (Unlicense) and [Steven Black](https://github.com/StevenBlack/hosts) (MIT).
 
 ## License
 

@@ -7,6 +7,8 @@ const DEFAULTS = {
   imageStyle: "color",
   imageColor: "#000000",
   imageBlur: 40,
+  blockedSites: [],
+  blockAdult: true,
 };
 const $ = (id) => document.getElementById(id);
 let tab = null;
@@ -66,6 +68,7 @@ async function render() {
       el.append(li);
     }
   };
+  renderBlocker(s);
   list($("sites"), s.sites, (x) => x, async (x) => {
     const cur = await settings();
     await chrome.storage.local.set({ sites: cur.sites.filter((y) => y !== x) });
@@ -77,6 +80,85 @@ async function render() {
     render();
   });
 }
+
+// ---------------------------------------------------------------- blocker
+function openUnblock(target) {
+  chrome.tabs.create({ url: chrome.runtime.getURL("blocker/blocked.html") + "?" + new URLSearchParams({ unblock: target }) });
+  window.close();
+}
+
+// The site you're on, and (if you're inside a section like /shorts) that section.
+function blockChoices() {
+  let u;
+  try {
+    u = new URL(tab.url);
+  } catch (e) {
+    return [];
+  }
+  if (!/^https?:$/.test(u.protocol)) return [];
+  const host = u.hostname.replace(/^www\./, "");
+  const out = [host];
+  const first = u.pathname.split("/").filter(Boolean)[0];
+  if (first) out.push(host + "/" + first.toLowerCase());
+  return out;
+}
+
+async function block(site) {
+  const r = await chrome.runtime.sendMessage({ t: "block", site });
+  $("blockError").hidden = !r.error;
+  $("blockError").textContent = r.error || "";
+  if (r.ok) $("blockInput").value = "";
+  render();
+}
+
+function renderBlocker(s) {
+  $("blockAdult").checked = s.blockAdult;
+  const here = $("blockHere");
+  here.innerHTML = "";
+  for (const site of blockChoices()) {
+    if (s.blockedSites.includes(site)) continue;
+    const b = document.createElement("button");
+    b.textContent = "Block " + site;
+    b.onclick = () => block(site);
+    here.append(b);
+  }
+  const ul = $("blockedList");
+  ul.innerHTML = "";
+  if (!s.blockedSites.length) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "No sites of your own yet";
+    ul.append(li);
+  }
+  for (const site of s.blockedSites) {
+    const li = document.createElement("li");
+    const span = document.createElement("span");
+    span.className = "mono";
+    span.textContent = site;
+    const b = document.createElement("button");
+    b.textContent = "Unblock";
+    b.onclick = () => openUnblock("site:" + site);
+    li.append(span, b);
+    ul.append(li);
+  }
+}
+
+$("blockForm").onsubmit = (e) => {
+  e.preventDefault();
+  if ($("blockInput").value.trim()) block($("blockInput").value);
+};
+$("blockAdult").onchange = (e) => {
+  if (e.target.checked) {
+    chrome.runtime.sendMessage({ t: "blockAdult" }).then(render);
+  } else {
+    e.target.checked = true; // turning it off goes through the same pause
+    openUnblock("adult-list");
+  }
+};
+fetch(chrome.runtime.getURL("rules/adult-count.json"))
+  .then((r) => r.json())
+  .then((c) => ($("adultCount").textContent = `(${c.sites.toLocaleString("en-US")})`))
+  .catch(() => {});
 
 $("toggleSite").onclick = async () => {
   const s = await settings();

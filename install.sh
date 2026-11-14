@@ -25,6 +25,9 @@ fi
   uv pip install --python "$HELPER/.venv/bin/python" open_clip_torch pillow
 }
 
+echo "Downloading the Quran recitation for the blocked page..."
+"$ROOT/tools/quran/fetch_audio.sh" || echo "  (recitation download failed; the blocked page still works, without sound)"
+
 echo "Downloading the AI models (one time)..."
 "$HELPER/.venv/bin/python" -c "from demucs.pretrained import get_model; get_model('htdemucs_ft')" 2>/dev/null
 "$HELPER/.venv/bin/python" -c "

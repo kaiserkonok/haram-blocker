@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Haram Blocker",
-  "version": "0.3.0",
-  "description": "Removes music from videos live, keeping only the voices, and hides images of the opposite gender. Runs the AI on your own GPU.",
+  "version": "0.4.0",
+  "description": "Keeps haram out of your browser: removes music from videos live (voices stay), hides images of the opposite gender, and blocks sites. Runs the AI on your own GPU.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAowdiiU8mbp1V6A8/iFRDkDtbs2i2KY0l+Owbk1ape8nL1h6vVc0mhoGcWA7vlfDjJQKKyKCqC1sEOtfq2Cqs9/CUYCzzZ0kmpg9+Fg7X1SCMWLtgcoUuivfoh01FbS6xjK6IVuu5fpbvy9W070eQY0RWrgwAmscNWoUXvIP+FHqZNxGrhm10tfiMXvXOptBXcp09zfASzEAKl5FVE8XqPAN9TWpHIdCmECvMPKSNnGzf+dQ1VDWCZrrlGMpnU/QsRhpkN7cdbWCAFU8GsO6KWenQWkdR6y055VsbeFvKoadoWixR7rqvse7A9icvk90rwHN/KgT0eamYaWOI6eH39QIDAQAB",
   "permissions": [
     "nativeMessaging",
     "storage",
     "tabs",
     "scripting",
-    "offscreen"
+    "offscreen",
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -76,6 +77,14 @@
       "matches": [
         "<all_urls>"
       ]
+    },
+    {
+      "resources": [
+        "blocker/blocked.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "incognito": "spanning",
@@ -84,5 +93,14 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "adult",
+        "enabled": true,
+        "path": "rules/adult.json"
+      }
+    ]
   }
 }

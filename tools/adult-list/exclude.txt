@@ -1,0 +1,161 @@
+# Sites removed from the built-in adult-site list.
+#
+# The source lists (see build.py) are made automatically and contain some
+# sites whose main purpose is not porn. Each line below was reviewed by hand
+# against the most-visited sites (Tranco top 30,000). Rule: a site is blocked
+# by default only if porn is its main purpose. Users can still block any of
+# these themselves.
+#
+# Also removed automatically: entries that are public suffixes (shared
+# hosting/DNS names like dynu.net or de.vu, under which thousands of
+# unrelated sites live).
+
+# news, magazines, entertainment
+ekstrabladet.dk
+cosmopolitan.com
+refinery29.com
+yourtango.com
+etonline.com
+zimbio.com
+glamourmagazine.co.uk
+vijaykarnataka.com
+lacuarta.com
+super.cz
+nwsource.com
+fark.com
+collegehumor.com
+break.com
+ebaumsworld.com
+funnyjunk.com
+southparkstudios.com
+fishki.net
+startpagina.nl
+mzansi247.com
+
+# search, social, chat, video, apps
+yandex.by
+xiaohongshu.com
+character.ai
+4chan.org
+2chan.net
+tango.me
+likee.video
+like-video.com
+ome.tv
+omegleweb.com
+nicovideo.jp
+kinopoisk.ru
+videa.hu
+miguvideo.com
+cda.pl
+dramaboxdb.com
+tubidy.cool
+my-cima.net
+qpyou.cn
+ankama.com
+period-calendar.com
+fotka.com
+eyny.com
+jkforum.net
+questionablequesting.com
+blogfreely.net
+
+# shops, marketplaces, jobs, education
+suruga-ya.jp
+cafepress.com
+booth.pm
+hmv.co.jp
+melonbooks.co.jp
+yes24.com
+quoka.de
+aukro.cz
+ambitionbox.com
+amazonlogistics.eu
+unex.es
+opensea.io
+rarible.com
+alloy.com
+mob.com
+
+# hosting, domains, DNS, analytics, file and image hosts
+fasthosts.co.uk
+101domain.com
+bigrock.com
+meusitehostgator.com.br
+cpanel.site
+50megs.com
+online.fr
+unblog.fr
+prv.pl
+de.vu
+dynu.net
+in.net
+eu.cc
+sa.com
+big.or.jp
+gate.cc
+mex.com
+use-application-dns.net
+zproxy.org
+51.la
+radikal.ru
+chomikuj.pl
+postimage.org
+imgbox.com
+imagebam.com
+imagevenue.com
+imagetwist.com
+fastpic.ru
+imageban.ru
+
+# torrents, gambling (not porn)
+1337x.to
+rarbg.to
+rutor.info
+superbet.com
+casino.com
+jackpotcity.co.za
+goldengate.hu
+esa.co.za
+
+# creator platforms, general manga/comics, AI art (mixed content)
+fanbox.cc
+boosty.to
+pixai.art
+seaart.ai
+toomics.com
+yanmaga.jp
+mangago.me
+manhwaweb.com
+manhwaread.com
+mangakatana.com
+mangadistrict.com
+manhuatop.org
+webtoonscan.com
+weebcentral.com
+scan-manga.com
+dynasty-scans.com
+comix.to
+fanfox.net
+fc2.com
+dmm.com
+libertic.com
+modelmayhem.com
+
+# mainstream dating apps (not porn; users can block them themselves)
+gotinder.com
+badoo.com
+badoocdn.com
+match.com
+okcupid.com
+pof.com
+mingle2.com
+taimi.com
+dateinasia.com
+afrointroductions.com
+elmaz.com
+loveplanet.ru
+mamba.ru
+binkdate.nl
+grindr.com
+grindr.mobi
